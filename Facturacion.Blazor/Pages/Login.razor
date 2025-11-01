@@ -1,0 +1,47 @@
+﻿@page "/login"
+@using Facturacion.Blazor.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject Facturacion.Blazor.Services.IAuthService AuthService
+@inject NavigationManager Nav
+
+<h3>Iniciar Sesión</h3>
+
+<EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+    <div class="mb-3">
+        <label>Usuario</label>
+        <InputText @bind-Value="loginModel.Username" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label>Contraseña</label>
+        <InputText @bind-Value="loginModel.Password" type="password" class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger mt-3">@ErrorMessage</div>
+    }
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new();
+    private string? ErrorMessage;
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            await AuthService.Login(loginModel.Username, loginModel.Password);
+            Nav.NavigateTo("/clientes");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    public class LoginModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

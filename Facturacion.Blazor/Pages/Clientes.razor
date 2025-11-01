@@ -1,0 +1,78 @@
+﻿@page "/clientes"
+@using Microsoft.AspNetCore.Authorization
+@using System.Net.Http.Json
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Clientes</h3>
+
+<AuthorizeView Roles="Admin">
+    <button @onclick="Nuevo" class="btn btn-success mb-3">Nuevo Cliente</button>
+</AuthorizeView>
+
+@if (clientes == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>RUC</th>
+                <th>Email</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in clientes)
+            {
+                <tr>
+                    <td>@c.Nombre</td>
+                    <td>@c.RUC</td>
+                    <td>@c.Email</td>
+                    <td>
+                        <button @onclick="() => Editar(c)" class="btn btn-sm btn-primary">Editar</button>
+                        <AuthorizeView Roles="Admin">
+                            <button @onclick="() => Eliminar(c)" class="btn btn-sm btn-danger">Eliminar</button>
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Cliente> clientes = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/clientes") ?? new();
+        }
+        catch
+        {
+            Nav.NavigateTo("/login");
+        }
+    }
+
+    private void Nuevo() => Nav.NavigateTo("/cliente/0");
+    private void Editar(Cliente c) => Nav.NavigateTo($"/cliente/{c.Id}");
+    private async Task Eliminar(Cliente c)
+    {
+        await Http.DeleteAsync($"api/clientes/{c.Id}");
+        clientes.Remove(c);
+    }
+
+    public class Cliente
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string RUC { get; set; } = "";
+        public string Email { get; set; } = "";
+    }
+}
