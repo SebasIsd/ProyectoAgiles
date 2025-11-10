@@ -1,15 +1,16 @@
-﻿@page "/clientes"
+@page "/productos"
 @attribute [Authorize(Roles = "Admin")]
 @using Facturacion.Blazor.Models
+@using Microsoft.AspNetCore.Components.Forms
 
-<PageTitle>Clientes</PageTitle>
+<PageTitle>Productos</PageTitle>
 
-<h3 class="mb-3">Clientes</h3>
+<h3 class="mb-3">Productos</h3>
 
 <!-- Barra de acciones -->
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <button class="btn btn-primary btn-sm" @onclick="Nuevo">
-        <i class="bi bi-person-plus"></i> Nuevo
+        <i class="bi bi-box-seam"></i> Nuevo
     </button>
     <button class="btn btn-outline-secondary btn-sm" @onclick="Refrescar">
         <i class="bi bi-arrow-clockwise"></i> Refrescar
@@ -39,34 +40,45 @@
     <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
             <tr>
-                <th>CI/RUC</th>
+                <th>Código</th>
                 <th>Nombre</th>
-                <th>Correo</th>
-                <th>Teléfono</th>
-                <th>Dirección</th>
+                <th>Stock</th>
+                <th>Expiración</th>
                 <th class="text-end">Acciones</th>
             </tr>
         </thead>
         <tbody>
             @if (!Filtrados.Any())
             {
-                <tr><td colspan="6" class="text-center text-muted">Sin registros</td></tr>
+                <tr><td colspan="5" class="text-center text-muted">Sin registros</td></tr>
             }
             else
             {
-                @foreach (var c in Filtrados)
+                @foreach (var p in Filtrados)
                 {
                     <tr>
-                        <td>@c.Documento</td>
-                        <td>@c.Nombre</td>
-                        <td>@c.Correo</td>
-                        <td>@c.Telefono</td>
-                        <td>@c.Direccion</td>
+                        <td>@p.Codigo</td>
+                        <td>@p.Nombre</td>
+                        <td>
+                            <span class="badge @StockBadge(p.Stock)">@p.Stock</span>
+                        </td>
+                        <td>
+                            @if (p.FechaExpiracion is null)
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                            else
+                            {
+                                <span class="badge @ExpBadge(p.FechaExpiracion.Value)">
+                                    @p.FechaExpiracion.Value.ToString("yyyy-MM-dd")
+                                </span>
+                            }
+                        </td>
                         <td class="text-end">
-                            <button class="btn btn-sm btn-outline-primary" title="Editar" @onclick="() => Editar(c)">
+                            <button class="btn btn-sm btn-outline-primary" title="Editar" @onclick="() => Editar(p)">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger ms-1" title="Eliminar" @onclick="() => PedirEliminar(c)">
+                            <button class="btn btn-sm btn-outline-danger ms-1" title="Eliminar" @onclick="() => PedirEliminar(p)">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
@@ -77,7 +89,6 @@
     </table>
 </div>
 
-<!-- Formulario -->
 @if (mostrarForm)
 {
     <div class="card shadow-sm">
@@ -90,9 +101,9 @@
 
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label">CI/RUC</label>
-                        <InputText class="form-control" @bind-Value="modelo.Documento" />
-                        <ValidationMessage For="@(() => modelo.Documento)" />
+                        <label class="form-label">Código</label>
+                        <InputText class="form-control" @bind-Value="modelo.Codigo" />
+                        <ValidationMessage For="@(() => modelo.Codigo)" />
                     </div>
                     <div class="col-md-8">
                         <label class="form-label">Nombre</label>
@@ -100,19 +111,14 @@
                         <ValidationMessage For="@(() => modelo.Nombre)" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Correo</label>
-                        <InputText class="form-control" @bind-Value="modelo.Correo" />
-                        <ValidationMessage For="@(() => modelo.Correo)" />
+                        <label class="form-label">Stock</label>
+                        <InputNumber class="form-control" @bind-Value="modelo.Stock" />
+                        <ValidationMessage For="@(() => modelo.Stock)" />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Teléfono</label>
-                        <InputText class="form-control" @bind-Value="modelo.Telefono" />
-                        <ValidationMessage For="@(() => modelo.Telefono)" />
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Dirección</label>
-                        <InputText class="form-control" @bind-Value="modelo.Direccion" />
-                        <ValidationMessage For="@(() => modelo.Direccion)" />
+                        <label class="form-label">Fecha de expiración</label>
+                        <InputDate class="form-control" @bind-Value="modelo.FechaExpiracion" />
+                        <ValidationMessage For="@(() => modelo.FechaExpiracion)" />
                     </div>
                 </div>
 
@@ -136,11 +142,11 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow">
                 <div class="modal-header">
-                    <h5 class="modal-title">Eliminar cliente</h5>
+                    <h5 class="modal-title">Eliminar producto</h5>
                     <button type="button" class="btn-close" @onclick="CerrarConfirm"></button>
                 </div>
                 <div class="modal-body">
-                    ¿Deseas eliminar a <strong>@clienteAEliminar?.Nombre</strong>?
+                    ¿Deseas eliminar <strong>@productoAEliminar?.Nombre</strong> (<code>@productoAEliminar?.Codigo</code>)?
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CerrarConfirm">Cancelar</button>
@@ -164,31 +170,32 @@
 }
 
 @code {
-    // Demo temporal en memoria. Luego lo conectamos a ClienteApi.
-    private List<Cliente> clientes = new()
+    private List<Producto> productos = new()
     {
-        new Cliente { Documento="0102030405", Nombre="Cliente Demo", Correo="demo@correo.com", Telefono="0999999999", Direccion="Ambato" }
+        new Producto { Codigo = "PRD-001", Nombre = "Producto Demo", Stock = 15, FechaExpiracion = DateTime.Now.AddMonths(10) },
+        new Producto { Codigo = "PRD-002", Nombre = "Vence Pronto", Stock = 3, FechaExpiracion = DateTime.Now.AddDays(20) },
+        new Producto { Codigo = "PRD-003", Nombre = "Vencido", Stock = 1, FechaExpiracion = DateTime.Now.AddDays(-3) }
     };
 
     private bool mostrarForm = false;
-    private string tituloForm = "Nuevo cliente";
-    private Cliente modelo = new();
+    private string tituloForm = "Nuevo producto";
+    private Producto modelo = new();
 
-    // Cargando
+    // Estado cargando
     private bool cargando = false;
 
     // Filtro
     private string filtro = "";
-    private IEnumerable<Cliente> Filtrados =>
+    private IEnumerable<Producto> Filtrados =>
         string.IsNullOrWhiteSpace(filtro)
-            ? clientes
-            : clientes.Where(c =>
-                (c.Documento + " " + c.Nombre + " " + c.Correo + " " + c.Telefono + " " + c.Direccion)
+            ? productos
+            : productos.Where(p =>
+                ($"{p.Codigo} {p.Nombre} {p.Stock} {p.FechaExpiracion:yyyy-MM-dd}")
                 .Contains(filtro, StringComparison.OrdinalIgnoreCase));
 
     // Confirmación
     private bool mostrarConfirm = false;
-    private Cliente? clienteAEliminar;
+    private Producto? productoAEliminar;
 
     // Toast
     private bool toastVisible;
@@ -210,28 +217,27 @@
 
     private void Nuevo()
     {
-        modelo = new Cliente();
-        tituloForm = "Nuevo cliente";
+        modelo = new Producto();
+        tituloForm = "Nuevo producto";
         mostrarForm = true;
     }
 
-    private void Editar(Cliente c)
+    private void Editar(Producto p)
     {
-        modelo = new Cliente
+        modelo = new Producto
         {
-            Documento = c.Documento,
-            Nombre = c.Nombre,
-            Correo = c.Correo,
-            Telefono = c.Telefono,
-            Direccion = c.Direccion
+            Codigo = p.Codigo,
+            Nombre = p.Nombre,
+            Stock = p.Stock,
+            FechaExpiracion = p.FechaExpiracion
         };
-        tituloForm = "Editar cliente";
+        tituloForm = "Editar producto";
         mostrarForm = true;
     }
 
-    private void PedirEliminar(Cliente c)
+    private void PedirEliminar(Producto p)
     {
-        clienteAEliminar = c;
+        productoAEliminar = p;
         mostrarConfirm = true;
     }
 
@@ -239,10 +245,10 @@
 
     private void ConfirmarEliminar()
     {
-        if (clienteAEliminar is not null)
+        if (productoAEliminar is not null)
         {
-            clientes.Remove(clienteAEliminar);
-            ShowToast("Cliente eliminado", "warning");
+            productos.Remove(productoAEliminar);
+            ShowToast("Producto eliminado", "warning");
         }
         mostrarConfirm = false;
         StateHasChanged();
@@ -254,7 +260,9 @@
     {
         cargando = true;
         StateHasChanged();
-        await Task.Delay(600); // Simula la llamada al API
+
+        await Task.Delay(600); // Simula llamada al API
+
         cargando = false;
         StateHasChanged();
         ShowToast("Lista actualizada", "info");
@@ -262,55 +270,72 @@
 
     private void Guardar()
     {
-        // Validación ligera antes de guardar
-        if (!ValidarCliente(modelo, out var msg))
+        // Validación rápida
+        if (!ValidarProducto(modelo, out var msg))
         {
             ShowToast(msg, "danger");
             return;
         }
 
-        var existe = clientes.FirstOrDefault(x => x.Documento == modelo.Documento);
+        var existe = productos.FirstOrDefault(x => x.Codigo == modelo.Codigo);
         if (existe is null)
         {
-            clientes.Add(new Cliente
+            productos.Add(new Producto
             {
-                Documento = modelo.Documento,
+                Codigo = modelo.Codigo,
                 Nombre = modelo.Nombre,
-                Correo = modelo.Correo,
-                Telefono = modelo.Telefono,
-                Direccion = modelo.Direccion
+                Stock = modelo.Stock,
+                FechaExpiracion = modelo.FechaExpiracion
             });
-            ShowToast("Cliente creado");
+            ShowToast("Producto creado");
         }
         else
         {
             existe.Nombre = modelo.Nombre;
-            existe.Correo = modelo.Correo;
-            existe.Telefono = modelo.Telefono;
-            existe.Direccion = modelo.Direccion;
-            ShowToast("Cliente actualizado");
+            existe.Stock = modelo.Stock;
+            existe.FechaExpiracion = modelo.FechaExpiracion;
+            ShowToast("Producto actualizado");
         }
-
         mostrarForm = false;
     }
 
-    // Validación básica de CI/RUC y correo
-    private bool ValidarCliente(Cliente c, out string error)
+    // Validación ligera
+    private bool ValidarProducto(Producto p, out string error)
     {
-        if (string.IsNullOrWhiteSpace(c.Documento) || !(c.Documento.Length == 10 || c.Documento.Length == 13) || !c.Documento.All(char.IsDigit))
+        if (string.IsNullOrWhiteSpace(p.Codigo))
         {
-            error = "El documento debe tener 10 o 13 dígitos numéricos.";
+            error = "El código es obligatorio.";
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(c.Correo) &&
-            !System.Text.RegularExpressions.Regex.IsMatch(c.Correo, @"^[^@\s]+@[^@\s]+\.[^@\s]+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (string.IsNullOrWhiteSpace(p.Nombre))
         {
-            error = "Correo no válido.";
+            error = "El nombre del producto es obligatorio.";
+            return false;
+        }
+
+        if (p.Stock < 0)
+        {
+            error = "El stock no puede ser negativo.";
             return false;
         }
 
         error = "";
         return true;
     }
+
+    // Helpers visuales
+    private string StockBadge(int stock)
+        => stock <= 0 ? "text-bg-danger"
+         : stock < 5 ? "text-bg-warning"
+         : "text-bg-success";
+
+    private string ExpBadge(DateTime fecha)
+    {
+        var hoy = DateTime.Today;
+        if (fecha.Date < hoy) return "text-bg-danger";                // vencido
+        if ((fecha - hoy).TotalDays <= 30) return "text-bg-warning";  // por vencer
+        return "text-bg-success";                                     // ok
+    }
 }
+

@@ -1,0 +1,67 @@
+:root{
+  --blue-900:#0b1b2a;
+  --blue-800:#0f2a45;
+  --blue-700:#12375c;
+  --blue-600:#164a7b;
+  --blue-500:#1e63a8;           /* primario */
+  --blue-400:#2a7bd1;           /* eléctrico */
+  --blue-300:#56a3ff;
+  --blue-200:#a8ccff;
+  --blue-100:#e6f0ff;
+
+  --accent:#2a7bd1;
+}
+
+/* Navbar */
+.navbar-dark.bg-dark{ background-color: var(--blue-800) !important; }
+.navbar .navbar-brand{ letter-spacing:.2px }
+.navbar .nav-link.active{ color:#fff !important; }
+.navbar .nav-link{ color:#cfe2ff !important; }
+.navbar .nav-link:hover{ color:#fff !important; }
+
+/* Botones */
+.btn-primary{
+  --bs-btn-bg:var(--blue-500);
+  --bs-btn-border-color:var(--blue-500);
+  --bs-btn-hover-bg:var(--blue-400);
+  --bs-btn-hover-border-color:var(--blue-400);
+  --bs-btn-focus-shadow-rgb:42,123,209;
+}
+.btn-outline-light:hover{ color:#0b1b2a !important; }
+
+/* Badges semáforo (ya usas) */
+.badge.text-bg-success{ background-color:#1f9d55 !important; }
+.badge.text-bg-warning{ background-color:#f1b417 !important; color:#0b1b2a; }
+.badge.text-bg-danger{  background-color:#e03131 !important; }
+
+/* Hero (banner) */
+.hero{
+  position:relative;
+  background:linear-gradient(0deg,rgba(11,27,42,.55),rgba(11,27,42,.55)),
+             center/cover no-repeat url('/img/hero.jpg');
+  min-height: 56vh;
+  color:#fff;
+  display:flex; align-items:center;
+}
+.hero .lead{ color:#e6f0ff; opacity:.95 }
+.hero .cta{ gap:.75rem }
+.hero .btn-ghost{
+  background:transparent; border:2px solid #fff; color:#fff;
+}
+.hero .btn-ghost:hover{ background:#fff; color:var(--blue-700); }
+
+/* Tarjetas home */
+.home-card .card{
+  border:0; box-shadow:0 8px 16px rgba(0,0,0,.06);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.home-card .card:hover{ transform:translateY(-2px);
+  box-shadow:0 12px 24px rgba(0,0,0,.10);
+}
+
+/* Footer */
+footer{ color:#7e8aa5 }
+
+h2.text-primary { color: var(--blue-500) !important; }
+.bg-light { background-color: var(--blue-100) !important; }
+section p { line-height: 1.6; }

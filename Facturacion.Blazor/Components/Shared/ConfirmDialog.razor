@@ -1,0 +1,27 @@
+@namespace Facturacion.Blazor.Components.Shared
+<div class="modal fade show" tabindex="-1" style="display:@(open?"block":"none")" aria-modal="true" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow">
+      <div class="modal-header">
+        <h5 class="modal-title">@Title</h5>
+        <button type="button" class="btn-close" @onclick="Close"></button>
+      </div>
+      <div class="modal-body">@ChildContent</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @onclick="Close">Cancelar</button>
+        <button class="btn btn-danger" @onclick="Confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@code{
+  [Parameter] public string Title { get; set; } = "Confirmar";
+  [Parameter] public RenderFragment? ChildContent { get; set; }
+  [Parameter] public EventCallback OnConfirm { get; set; }
+  bool open;
+  public void Show()=> open=true;
+  void Close()=> open=false;
+  async Task Confirm(){ await OnConfirm.InvokeAsync(); Close(); }
+}
+

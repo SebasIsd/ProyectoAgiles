@@ -1,17 +1,77 @@
-﻿@inherits LayoutComponentBase
+﻿@namespace Facturacion.Blazor.Components
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inject Facturacion.Blazor.Services.AuthService AuthService
+@inject NavigationManager Navigation
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
 
-        <article class="content px-4">
+<div class="app-wrapper">
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+            <div class="container">
+                <a class="navbar-brand fw-semibold" href="/">FacturaExpress</a>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                        aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="">Inicio</NavLink>
+                        </li>
+                        
+                        @* INICIO: RESTRICCIÓN DE ROLES PARA NAVEGACIÓN *@
+                        <AuthorizeView Roles="Admin">
+                            <Authorized>
+                                <li class="nav-item">
+                                    <NavLink class="nav-link" href="clientes">Clientes</NavLink>
+                                </li>
+                                <li class="nav-item">
+                                    <NavLink class="nav-link" href="productos">Productos</NavLink>
+                                </li>
+                            </Authorized>
+                        </AuthorizeView>
+                        @* FIN: RESTRICCIÓN DE ROLES *@
+                        
+                    </ul>
+
+                    <AuthorizeView>
+                        <Authorized>
+                            <span class="navbar-text me-3">Hola, @context.User.Identity?.Name</span>
+                            
+                            <button class="btn btn-outline-light btn-sm" @onclick="HandleLogout">
+                                Salir
+                            </button>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a class="btn btn-outline-light btn-sm" href="/login">Ingresar</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="py-4">
+        <div class="container">
             @Body
-        </article>
+        </div>
     </main>
+
+    <footer class="border-top py-3 text-center text-muted small">
+        <div class="container">
+            © @(DateTime.Now.Year) FacturaExpress · Sprint 1 – Fundamentos y CRUD
+        </div>
+    </footer>
 </div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        AuthService.Logout();
+        await Task.Delay(50); 
+        Navigation.NavigateTo("/", true); 
+    }
+}

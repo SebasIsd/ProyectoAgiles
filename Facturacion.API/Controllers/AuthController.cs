@@ -17,7 +17,8 @@ namespace Facturacion.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var token = await _authService.LoginAsync(dto.Username, dto.Password);
+            var token = await _authService.LoginAsync(dto.Email, dto.Password); 
+            
             if (token == null)
                 return Unauthorized("Credenciales incorrectas");
 
@@ -27,7 +28,8 @@ namespace Facturacion.API.Controllers
 
     public class LoginDto
     {
-        public string Username { get; set; } = "";
+        
+        public string Email { get; set; } = "";
         public string Password { get; set; } = "";
     }
 }

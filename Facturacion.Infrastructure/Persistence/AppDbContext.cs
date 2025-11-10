@@ -21,6 +21,10 @@ namespace Facturacion.Infrastructure.Persistence
         {
             base.OnModelCreating(builder);
 
+            builder.Entity<Producto>()
+                .Property(p => p.Precio)
+                .HasPrecision(18, 2); 
+
             // Seed Admin
             var admin = new Usuario
             {

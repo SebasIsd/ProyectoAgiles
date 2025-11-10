@@ -27,14 +27,22 @@ namespace Facturacion.Blazor.Services
             return new AuthenticationState(new ClaimsPrincipal(identity));
         }
 
-        public void NotifyUserAuthentication(string token)
+
+        public async void NotifyUserAuthentication(string token)
         {
+            await _localStorage.SetItemAsync("authToken", token);
             NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
         }
+        // Facturacion.Blazor/Services/CustomAuthStateProvider.cs
 
-        public void NotifyUserLogout()
+        // Nota: Necesita ser 'async void' o 'async Task' para usar await.
+        public async void NotifyUserLogout()
         {
-            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
+            await _localStorage.RemoveItemAsync("authToken");
+
+            NotifyAuthenticationStateChanged(
+                Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity())))
+            );
         }
     }
 }
