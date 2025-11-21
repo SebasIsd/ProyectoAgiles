@@ -1,0 +1,78 @@
+﻿<!-- Clientes.razor (solo lista + botones) -->
+@page "/clientes/lista"
+@attribute [Authorize]
+@using Facturacion.Application.DTOs
+@using Facturacion.Blazor.Services
+
+<h3>Clientes</h3>
+
+<div class="d-flex gap-2 mb-3">
+    <a href="/clientes/nuevo" class="btn btn-primary">Nuevo Cliente</a>
+    <button class="btn btn-outline-secondary ms-2" @onclick="Cargar">Refrescar</button>
+</div>
+
+@if (clientes == null)
+{
+    <p>Cargando...</p>
+}
+else if (!clientes.Any())
+{
+    <p>No hay clientes registrados.</p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Identificación</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th>Dirección</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in clientes)
+            {
+                <tr>
+                    <td>@c.TipoIdentificacion</td>
+                    <td>@c.Identificacion</td>
+                    <td>@c.Nombre</td>
+                    <td>@c.Email</td>
+                    <td>@c.Telefono</td>
+                    <td>@c.Direccion</td>
+                    <td class="text-end">
+                        <a href="/clientes/editar/@c.Id" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Desactivar(c.Id)">Desactivar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Inject] ClienteApi Api { get; set; } = default!;
+    private List<ClienteDto>? clientes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clientes = await Api.ListarAsync();
+        Console.WriteLine($"Clientes cargados: {clientes?.Count ?? 0}");
+        StateHasChanged();
+    }
+
+    private async Task Cargar()
+    {
+        clientes = await Api.ListarAsync();
+        StateHasChanged();
+    }
+
+    private async Task Desactivar(int id)
+    {
+        await Api.DesactivarAsync(id);
+        await Cargar();
+    }
+}

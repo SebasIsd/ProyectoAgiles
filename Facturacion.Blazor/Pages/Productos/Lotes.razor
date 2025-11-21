@@ -1,4 +1,5 @@
 ﻿@page "/productos/lotes/{ProductoId:int}"
+@attribute [Authorize]
 @using Facturacion.Application.DTOs
 @inject ProductoApi Api
 @inject NavigationManager Nav

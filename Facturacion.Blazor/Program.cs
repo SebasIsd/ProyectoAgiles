@@ -33,7 +33,6 @@ builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 builder.Services.AddScoped<ProductoApi>();     // <--- ¡ESTO ES LO QUE FALTA!
 builder.Services.AddScoped<AuthService>();     // Probablemente también necesites este
-builder.Services.AddScoped<ClienteApi>();
 
 // 4. Configuración del CLIENTE NOMBRADO "API"
 // Este registro es usado por IHttpClientFactory en AuthService.cs.

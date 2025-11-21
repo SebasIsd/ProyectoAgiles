@@ -1,0 +1,133 @@
+﻿@page "/clientes/nuevo"
+@page "/clientes/editar/{Id:int}"
+@attribute [Authorize]
+@using Facturacion.Application.DTOs
+@using Facturacion.Blazor.Services
+@inject ClienteApi Api
+@inject NavigationManager Nav
+
+<PageTitle>@(Id.HasValue ? "Editar Cliente" : "Nuevo Cliente")</PageTitle>
+
+<h3 class="mb-4">@(Id.HasValue ? "Editar" : "Nuevo") Cliente</h3>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="alert alert-danger" />
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Tipo Identificación <span class="text-danger">*</span></label>
+            <InputSelect @bind-Value="modelo.TipoIdentificacion" class="form-select" disabled="@esEdicion">
+                <option value="CEDULA">Cédula</option>
+                <option value="RUC">RUC</option>
+                <option value="PASAPORTE">Pasaporte</option>
+            </InputSelect>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Identificación <span class="text-danger">*</span></label>
+            <InputText @bind-Value="modelo.Identificacion" class="form-control" disabled="@esEdicion" />
+            <small class="text-muted d-block">@MensajeAyuda</small>
+        </div>
+
+        <div class="col-md-5">
+            <label class="form-label fw-bold">Razón Social / Nombres y Apellidos <span class="text-danger">*</span></label>
+            <InputText @bind-Value="modelo.Nombre" class="form-control" placeholder="Ej: Juan Pérez / EMPRESA XYZ S.A." />
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <label class="form-label">Correo Electrónico</label>
+            <InputText @bind-Value="modelo.Email" class="form-control" type="email" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <InputText @bind-Value="modelo.Telefono" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <InputText @bind-Value="modelo.Direccion" class="form-control" />
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Guardar
+        </button>
+        <a href="/clientes/lista" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Cancelar
+        </a>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    // Ahora SÍ funciona el binding porque tiene setter normal
+    private CrearClienteDto modelo = new()
+    {
+        TipoIdentificacion = "CEDULA",
+        Nombre = "",
+        Identificacion = ""
+    };
+
+    private bool esEdicion => Id.HasValue;
+
+    private string MensajeAyuda => modelo.TipoIdentificacion switch
+    {
+        "CEDULA" => "10 dígitos numéricos",
+        "RUC" => "13 dígitos (personas naturales terminan en 001)",
+        "PASAPORTE" => "Código alfanumérico",
+        _ => ""
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (esEdicion)
+        {
+            var cliente = await Api.PorIdAsync(Id.Value);
+            if (cliente is not null)
+            {
+                modelo = new CrearClienteDto
+                {
+                    Nombre = cliente.Nombre,
+                    TipoIdentificacion = cliente.TipoIdentificacion,
+                    Identificacion = cliente.Identificacion,
+                    Email = cliente.Email,
+                    Telefono = cliente.Telefono,
+                    Direccion = cliente.Direccion
+                };
+            }
+        }
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (esEdicion)
+            {
+                var dto = new ActualizarClienteDto
+                {
+                    Nombre = modelo.Nombre,
+                    Email = modelo.Email,
+                    Telefono = modelo.Telefono,
+                    Direccion = modelo.Direccion
+                };
+                await Api.ActualizarAsync(Id.Value, dto);
+            }
+            else
+            {
+                await Api.CrearAsync(modelo);
+            }
+
+            Nav.NavigateTo("/clientes/lista");
+        }
+        catch (Exception ex)
+        {
+            // Aquí puedes usar un toast o alert
+            Console.WriteLine("Error: " + ex.Message);
+        }
+    }
+}
