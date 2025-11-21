@@ -1,0 +1,190 @@
+﻿@page "/productos/lotes/{ProductoId:int}"
+@using Facturacion.Application.DTOs
+@inject ProductoApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Lotes del producto</PageTitle>
+
+@if (cargando)
+{
+    <div class="text-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+}
+else if (producto is null)
+{
+    <div class="alert alert-danger">
+        Producto no encontrado o no existe.
+    </div>
+}
+else
+{
+    <h4>Lotes - @producto.Nombre</h4>
+
+    <button class="btn btn-primary mb-3" @onclick="MostrarFormLote">
+        + Nuevo Lote
+    </button>
+
+    @if (producto.Lotes == null || !producto.Lotes.Any())
+    {
+        <div class="alert alert-info">No hay lotes registrados para este producto.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+
+                <thead class="table-light">
+                    <tr>
+                        <th>Lote</th>
+                        <th>Precio Compra</th>
+
+                        <th>Precio Venta</th>
+                        <th>Stock</th>
+                        <th>Ingreso</th>
+                        <th>Vencimiento</th>
+                    </tr>
+
+                </thead>
+                <tbody>
+                    @foreach (var l in producto.Lotes.OrderBy(x => x.FechaIngreso))
+                    {
+                        <tr @key="@l" class="@(l.Stock == 0 ? "table-secondary" : "")">
+                            <td><strong>@l.Lote</strong></td>
+                            <td>@l.PrecioCompra</td>
+                            <td>@l.PrecioVenta</td>
+
+                            <td>
+                                <span class="badge bg-@(l.Stock > 0 ? "success" : "danger")">
+                                    @l.Stock
+
+                                </span>
+                            </td>
+                            <td>@l.FechaIngreso</td>
+
+                            <td>@(l.FechaVencimiento)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+
+    @if (mostrarForm)
+    {
+        <div class="card mt-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Nuevo Lote</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="nuevoLote" OnValidSubmit="GuardarLote">
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Lote *</label>
+                            <InputText @bind-Value="nuevoLote.Lote"
+                                       class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio Compra *</label>
+
+                            <InputNumber @bind-Value="nuevoLote.PrecioCompra" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio Venta *</label>
+
+                            <InputNumber @bind-Value="nuevoLote.PrecioVenta" class="form-control" />
+                            @if (nuevoLote.PrecioVenta > nuevoLote.PrecioCompra * 4)
+                            {
+
+                                <small class="text-danger">Advertencia: Margen muy alto</small>
+                            }
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Cantidad *</label>
+                            <InputNumber @bind-Value="nuevoLote.Cantidad" class="form-control" min="1" />
+
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Vencimiento</label>
+                            <InputDate @bind-Value="nuevoLote.FechaVencimiento" class="form-control" />
+
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">Guardar Lote</button>
+
+                        <button type="button" class="btn btn-secondary ms-2" @onclick="() => mostrarForm = false">
+                            Cancelar
+                        </button>
+                    </div>
+
+                </EditForm>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int ProductoId
+    {
+        get;
+        set;
+    }
+
+    private ProductoDetalleDto? producto;
+    private CrearLoteDto nuevoLote = new();
+    private bool mostrarForm = false;
+    private bool cargando = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            producto = await Api.GetDetalleAsync(ProductoId);
+            nuevoLote = new CrearLoteDto { ProductoId = ProductoId };
+        }
+        catch (Exception ex)
+        {
+            // Aquí puedes usar un toast o algo, pero por ahora mostramos en consola
+            Console.WriteLine($"Error cargando producto: {ex.Message}");
+            producto = null;
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void MostrarFormLote()
+    {
+        nuevoLote = new CrearLoteDto { ProductoId = ProductoId };
+        mostrarForm = true;
+    }
+
+    private async Task GuardarLote()
+    {
+        try
+        {
+            await Api.CrearLote(nuevoLote);
+            producto = await Api.GetDetalleAsync(ProductoId);
+            mostrarForm = false;
+        }
+        catch (Exception ex)
+        {
+            await Task.Delay(1);
+            // para que no se queje el compilador
+            Console.WriteLine($"Error guardando lote: {ex.Message}");
+            // Aquí iría un toast real
+        }
+    }
+}

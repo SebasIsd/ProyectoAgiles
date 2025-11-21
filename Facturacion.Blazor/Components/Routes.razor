@@ -1,6 +1,23 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
+﻿@using Facturacion.Blazor.Components
+
+@using Facturacion.Blazor.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+@using Facturacion.Blazor.Pages
+
+<Router AppAssembly="@typeof(Program).Assembly">
+  <Found Context="routeData">
+    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+      <NotAuthorized>
+        <div class="alert alert-warning my-4">
+          No autorizado. <a href="/login" class="alert-link">Iniciar sesión</a>
+        </div>
+      </NotAuthorized>
+      <Authorizing>
+        <p class="my-4">Verificando permisos…</p>
+      </Authorizing>
+    </AuthorizeRouteView>
+  </Found>
+  <NotFound>
+    <Error />
+  </NotFound>
 </Router>

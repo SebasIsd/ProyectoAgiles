@@ -10,7 +10,7 @@
       {
         "Path": "Facturacion.API\\Facturacion.API.csproj",
         "Action": "Start",
-        "DebugTarget": "https"
+        "DebugTarget": "http"
       }
     ]
   }

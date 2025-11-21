@@ -1,0 +1,256 @@
+﻿@page "/productos/nuevo"
+@page "/productos/editar/{Id:int}"
+@using Facturacion.Application.DTOs
+@using Facturacion.Blazor.Services
+@using Microsoft.JSInterop
+@inject ProductoApi Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(esNuevo ? "Nuevo Producto" : "Editar Producto")</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">@(esNuevo ? "Nuevo Producto" : "Editar Producto")</h4>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@modelo" OnValidSubmit="@Guardar">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="alert alert-danger mb-3" />
+
+                @* INICIO DE LA MEJORA: Mensaje de error interno *@
+                @if (!string.IsNullOrWhiteSpace(MensajeError))
+                {
+                    <div class="alert alert-danger mb-3" role="alert">
+                        <i class="bi bi-x-octagon-fill me-2"></i> @MensajeError
+                    </div>
+                }
+                @* FIN DE LA MEJORA *@
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">1. Categoría *</label>
+                    <InputSelect @bind-Value="modelo.CategoriaId"
+                                 class="form-select form-select-lg"
+                                 @onchange="OnCategoriaChanged">
+                        <option value="0">-- Seleccione una categoría --</option>
+                        @foreach (var cat in categorias)
+                        {
+                            <option value="@cat.Id">@cat.Nombre</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                @if (modelo.CategoriaId > 0)
+                {
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label>Nombre del Producto *</label>
+                            <InputText @bind-Value="modelo.Nombre" class="form-control" placeholder="Ej. Arroz, TV, Jabón..." />
+                        </div>
+                        <div class="col-md-6">
+                            <label>Código Interno</label>
+                            <InputText @bind-Value="modelo.Codigo" class="form-control" />
+                        </div>
+                    </div>
+
+                    @* Solo si es categoría de electrónica (supongamos que es ID 3 = Tecnología) *@
+                    @if (EsCategoriaTecnologia)
+                    {
+                        <div class="card mt-4 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                Detalles Técnicos (Obligatorio para Tecnología)
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Marca *</label>
+                                        <InputSelect @bind-Value="modelo.MarcaId" class="form-select">
+                                            <option value="">-- Seleccione marca --</option>
+                                            @foreach (var m in marcas)
+                                            {
+                                                <option value="@m.Id">@m.Nombre</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Modelo *</label>
+                                        <InputText @bind-Value="modelo.Modelo" class="form-control" placeholder="Ej. UN55AU8000" />
+                                    </div>
+                                    <div class="col-12">
+                                        <label>Código de Barras</label>
+                                        <InputText @bind-Value="modelo.CodigoBarra" class="form-control" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mt-3">
+                            <label>Descripción</label>
+                            <InputTextArea @bind-Value="modelo.Descripcion" class="form-control" rows="3" />
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        Seleccione una categoría para continuar.
+                    </div>
+                }
+
+                <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-success" disabled="@(modelo.CategoriaId == 0 || (EsCategoriaTecnologia && modelo.MarcaId == null))">
+                        Guardar
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private bool esNuevo => Id == 0;
+
+    private CrearProductoDto modelo = new() { CategoriaId = 0 };
+    private List<CategoriaDto> categorias = new();
+    private List<MarcaDto> marcas = new();
+    private string? MensajeError; // Variable para mostrar errores
+
+    private bool EsCategoriaTecnologia => modelo.CategoriaId == 3; // Cambia el 3 si tu categoría Tecnología tiene otro ID
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarListas();
+
+        if (!esNuevo)
+        {
+            await CargarProductoParaEditar();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await CargarListas();
+
+        if (!esNuevo)
+        {
+            await CargarProductoParaEditar();
+        }
+    }
+
+    private async Task CargarListas()
+    {
+        // Limpiar error antes de cargar listas
+        MensajeError = null;
+        try
+        {
+            categorias = await Api.GetCategoriasAsync();
+            marcas = await Api.GetMarcasAsync();
+        }
+        catch (Exception ex)
+        {
+            MensajeError = $"Error al cargar listas: {ex.Message}";
+        }
+    }
+
+    private async Task CargarProductoParaEditar()
+    {
+        MensajeError = null;
+        try
+        {
+            var detalle = await Api.GetDetalleAsync(Id);
+
+            if (detalle != null)
+            {
+                modelo = new CrearProductoDto
+                {
+                    Nombre = detalle.Nombre ?? "",
+                    Codigo = detalle.Codigo ?? "",
+                    CodigoBarra = detalle.CodigoBarra,
+                    Descripcion = detalle.Descripcion,
+                    Modelo = detalle.Modelo,
+                    MarcaId = detalle.Marca?.Id,
+                    CategoriaId = detalle.Categoria?.Id ?? 0
+                };
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // MEJORA: Mostrar error en el front
+            MensajeError = $"Error al cargar el producto para editar: {ex.Message}";
+        }
+    }
+
+    private void OnCategoriaChanged(ChangeEventArgs e)
+    {
+        MensajeError = null;
+        if (int.TryParse(e.Value?.ToString(), out int catId))
+        {
+            modelo.CategoriaId = catId;
+
+            if (!EsCategoriaTecnologia)
+            {
+                modelo.MarcaId = null;
+                modelo.Modelo = null;
+                modelo.CodigoBarra = null;
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task Guardar()
+    {
+        MensajeError = null; // Limpiar mensaje de error antes de intentar guardar
+
+        if (modelo.CategoriaId == 0)
+        {
+            // MEJORA: Usar MensajeError
+            MensajeError = "Debe seleccionar una categoría.";
+            return;
+        }
+
+        if (EsCategoriaTecnologia && modelo.MarcaId == null)
+        {
+            // MEJORA: Usar MensajeError
+            MensajeError = "Debe seleccionar una marca para productos tecnológicos.";
+            return;
+        }
+
+        try
+        {
+            if (esNuevo)
+            {
+                await Api.Crear(modelo);
+            }
+            else
+            {
+                var actualizar = new ActualizarProductoDto
+                {
+                    Nombre = modelo.Nombre,
+                    Codigo = modelo.Codigo,
+                    CodigoBarra = modelo.CodigoBarra,
+                    Descripcion = modelo.Descripcion,
+                    Modelo = modelo.Modelo,
+                    MarcaId = modelo.MarcaId,
+                    CategoriaId = modelo.CategoriaId
+                };
+                await Api.Actualizar(Id, actualizar);
+            }
+            Nav.NavigateTo("/productos/lista");
+        }
+        catch (Exception ex)
+        {
+            // MEJORA: Usar MensajeError para errores de la API (como código duplicado)
+            MensajeError = "Error al guardar: " + ex.Message;
+        }
+    }
+
+    private void Cancelar() => Nav.NavigateTo("/productos/lista");
+}

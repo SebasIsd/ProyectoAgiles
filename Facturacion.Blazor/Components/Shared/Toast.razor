@@ -1,0 +1,16 @@
+@namespace Facturacion.Blazor.Components.Shared
+@if (show)
+{
+  <div class="toast position-fixed bottom-0 end-0 mb-3 me-3 show text-bg-@type" role="alert">
+    <div class="d-flex">
+      <div class="toast-body">@message</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="Hide"></button>
+    </div>
+  </div>
+}
+@code{
+  bool show; string message=""; string type="success";
+  public void Show(string msg, string t="success"){ message=msg; type=t; show=true; StateHasChanged(); }
+  void Hide()=> show=false;
+}
+

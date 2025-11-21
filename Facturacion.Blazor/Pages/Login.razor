@@ -1,47 +1,62 @@
 ﻿@page "/login"
-@using Facturacion.Blazor.Services
-@using Microsoft.AspNetCore.Components.Forms
-@inject Facturacion.Blazor.Services.IAuthService AuthService
+@inject AuthService Auth
 @inject NavigationManager Nav
 
-<h3>Iniciar Sesión</h3>
+@attribute [AllowAnonymous] 
 
-<EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+<h2 class="mb-4">Iniciar Sesión</h2>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<EditForm Model="@modelo" OnValidSubmit="@OnSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
     <div class="mb-3">
-        <label>Usuario</label>
-        <InputText @bind-Value="loginModel.Username" class="form-control" />
+        <label class="form-label">Usuario (correo)</label>
+        <InputText class="form-control" @bind-Value="modelo.Correo" />
+        <ValidationMessage For="@(()=>modelo.Correo)" />
     </div>
+
     <div class="mb-3">
-        <label>Contraseña</label>
-        <InputText @bind-Value="loginModel.Password" type="password" class="form-control" />
+        <label class="form-label">Contraseña</label>
+        <InputText class="form-control" @bind-Value="modelo.Password" type="@inputType" />
+        <ValidationMessage For="@(()=>modelo.Password)" />
+        <div class="form-text"><a href="#" @onclick="Toggle">@(show ? "Ocultar" : "Mostrar")</a></div>
     </div>
-    <button type="submit" class="btn btn-primary">Login</button>
-    @if (!string.IsNullOrEmpty(ErrorMessage))
-    {
-        <div class="alert alert-danger mt-3">@ErrorMessage</div>
-    }
+
+    <button class="btn btn-primary" disabled="@loading">
+        @(loading ? "Entrando..." : "Login")
+    </button>
 </EditForm>
 
 @code {
-    private LoginModel loginModel = new();
-    private string? ErrorMessage;
+    private LoginVm modelo = new();
+    private bool loading, show;
+    private string inputType => show ? "text" : "password";
+    private string? error;
 
-    private async Task HandleLogin()
+    public class LoginVm
     {
-        try
-        {
-            await AuthService.Login(loginModel.Username, loginModel.Password);
-            Nav.NavigateTo("/clientes");
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
+        [Required, EmailAddress] public string Correo { get; set; } = "";
+        [Required, MinLength(4)] public string Password { get; set; } = "";
     }
 
-    public class LoginModel
+    void Toggle() => show = !show;
+
+    private async Task OnSubmit()
     {
-        public string Username { get; set; } = "";
-        public string Password { get; set; } = "";
+        error = null; loading = true;
+
+        // Opción A: si tu AuthService tiene este método que devuelve (bool ok, string? err)
+        var result = await Auth.LoginAsync(modelo.Correo, modelo.Password);
+        loading = false;
+
+        if (result.ok) Nav.NavigateTo("/dashboard");
+        else error = result.error ?? "Error de login.";
     }
 }
+

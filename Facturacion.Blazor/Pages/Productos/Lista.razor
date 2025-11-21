@@ -1,0 +1,140 @@
+@page "/productos/lista"
+@using Facturacion.Blazor.Services
+@using Facturacion.Application.DTOs
+@using Microsoft.JSInterop
+@inject ProductoApi ProductoApi
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Productos</PageTitle>
+
+<h3 class="mb-4">Productos</h3>
+
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="NuevoProducto">
+        Nuevo Producto
+    </button>
+    
+    <button class="btn btn-outline-secondary" @onclick="Cargar">
+        <i class="bi bi-arrow-clockwise me-1"></i> Refrescar
+    </button>
+    
+    <div class="input-group" style="max-width:320px">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input class="form-control" placeholder="Buscar..."
+               @bind="filtro" @bind:event="oninput" />
+    </div>
+</div>
+
+@if (cargando)
+{
+    <div class="text-center my-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (!productos.Any())
+{
+    <div class="alert alert-info">No hay productos registrados.</div>
+}
+else
+{
+    <div class="table-responsive shadow">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Marca / Modelo</th>
+                    <th class="text-center">Stock Total</th>
+                    <th>Precio Venta</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in ProductosFiltrados)
+                {
+                    <tr>
+                        <td>
+                            <span class="fw-bold">@p.Codigo</span><br />
+                            <span class="text-muted small">@p.Codigo</span>
+                        </td>
+                        <td>
+                            <span class="fw-bold">@p.Nombre</span><br />
+                            <span class="text-muted small">@p.Descripcion</span>
+                        </td>
+                        <td>@p.Marca / @p.Modelo</td>
+                        <td class="text-center">
+                            <span class="badge rounded-pill text-bg-@((p.StockTotal <= 5 && p.Activo) ? "warning" : p.StockTotal == 0 ? "danger" : "info")">
+                                @p.StockTotal
+                            </span>
+                        </td>
+                        <td class="fw-bold text-success">
+                            @p.PrecioVentaActual.ToString("C2")
+                        </td>
+                        <td>
+                            <span class="badge text-bg-@((p.Activo) ? "success" : "secondary")">
+                                @((p.Activo) ? "Activo" : "Inactivo")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-info"
+                                    @onclick="() => VerDetalle(p.Id)">
+                                Lotes
+                            </button>
+
+                            <button class="btn btn-sm btn-outline-primary ms-1"
+                                    @onclick="() => Editar(p.Id)">
+                                Editar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    List<ProductoListaDto> productos = new();
+    string filtro = "";
+    bool cargando = true;
+
+    List<ProductoListaDto> ProductosFiltrados => string.IsNullOrWhiteSpace(filtro)
+        ? productos
+        : productos.Where(p =>
+            (p.Nombre?.Contains(filtro, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (p.Codigo?.Contains(filtro) ?? false)
+          ).ToList();
+
+
+    async Task Cargar()
+    {
+        cargando = true;
+        StateHasChanged(); 
+
+        try
+        {
+            var resultado = await ProductoApi.ListarAsync();
+            productos = resultado ?? new List<ProductoListaDto>();
+        }
+        catch
+        {
+            productos = new List<ProductoListaDto>();
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    void NuevoProducto() => Nav.NavigateTo("/productos/nuevo");
+    void Editar(int id) => Nav.NavigateTo($"/productos/editar/{id}");
+    void VerDetalle(int id) => Nav.NavigateTo($"/productos/lotes/{id}");
+}

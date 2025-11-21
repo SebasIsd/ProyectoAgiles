@@ -1,0 +1,153 @@
+﻿@page "/dashboard"
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+
+<PageTitle>Dashboard | Facturación Electrónica</PageTitle>
+
+@code {
+    private string? NombreUsuario = "Administrador";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // Asumiendo que el nombre completo está en el claim "Nombre" o "Name"
+        NombreUsuario = user.FindFirst(ClaimTypes.Name) ?.Value 
+                         ?? user.FindFirst("Nombre")?.Value 
+                         ?? "Usuario";
+    }
+}
+
+<h3 class="mb-2">Bienvenido, @NombreUsuario</h3>
+<p class="text-muted mb-4">Resumen ejecutivo y métricas clave de tu negocio.</p>
+
+<div class="row g-4 mb-5">
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card shadow-sm border-start border-success border-5 h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                            Ingresos del Mes
+                        </div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">$ 15,350.50</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-currency-dollar fa-2x text-success fs-3"></i>
+                    </div>
+                </div>
+            </div>
+            <a class="card-footer text-success small bg-light" href="/facturas">
+                Ver facturación <i class="bi bi-arrow-right-circle-fill"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card shadow-sm border-start border-success border-5 h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                            Ingresos del Mes
+                        </div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">$2,450.00</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-currency-dollar fa-2x text-gray-300" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card shadow-sm border-start border-warning border-5 h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-xs fw-bold text-warning text-uppercase mb-1">
+                            Cuentas por Cobrar
+                        </div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">$ 4,500.00</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-cash-stack fa-2x text-warning fs-3"></i>
+                    </div>
+                </div>
+            </div>
+            <a class="card-footer text-warning small bg-light" href="/reportes">
+                Ver reporte de cobros <i class="bi bi-arrow-right-circle-fill"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card shadow-sm border-start border-danger border-5 h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-xs fw-bold text-danger text-uppercase mb-1">
+                            Productos en Crítico
+                        </div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">8 Items</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-exclamation-triangle-fill fa-2x text-danger fs-3"></i>
+                    </div>
+                </div>
+            </div>
+            <a class="card-footer text-danger small bg-light" href="/productos">
+                Gestionar inventario <i class="bi bi-arrow-right-circle-fill"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-bold d-flex align-items-center">
+                <i class="bi bi-graph-up me-2"></i> Evolución de Ventas (Últimos 6 meses)
+                <span class="ms-auto badge text-bg-info">Datos Simulados</span>
+            </div>
+            <div class="card-body">
+                <div style="height:250px; background-color: #f0f3f6; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                    <span class="text-muted">Integración de Gráficos (ej. Chart.js)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-clock-history me-2"></i> Últimas 5 Facturas Emitidas
+            </div>
+            <div class="card-body">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th># Factura</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>001-001-000010</td><td>Carlos Pérez</td><td>$150.00</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
+                        <tr><td>001-001-000009</td><td>María Solis</td><td>$85.50</td><td><span class="badge text-bg-warning">Pendiente</span></td></tr>
+                        <tr><td>001-001-000008</td><td>Demo S.A.</td><td>$400.00</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
+                        <tr><td>001-001-000007</td><td>Roberto Gómez</td><td>$25.75</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
+                        <tr><td>001-001-000006</td><td>Factura Prueba</td><td>$3,200.00</td><td><span class="badge text-bg-danger">Vencida</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
