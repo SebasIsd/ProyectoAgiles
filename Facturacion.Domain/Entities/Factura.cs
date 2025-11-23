@@ -1,3 +1,4 @@
+using Facturacion.Domain.Entities;
 public class Factura : BaseEntity
 {
     public int ClienteId { get; set; }
