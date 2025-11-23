@@ -13,6 +13,11 @@ namespace Facturacion.Application.DTOs
         public DateTime FechaEmision { get; set; }
         public int ClienteId { get; set; }  // AGREGADO para editar
         public string ClienteNombre { get; set; } = string.Empty;
+        public string ClienteIdentificacion { get; set; } = string.Empty;
+        public string ClienteTipoIdentificacion { get; set; } = string.Empty;
+        public string ClienteEmail { get; set; } = string.Empty;
+        public string ClienteTelefono { get; set; } = string.Empty;
+        public string ClienteDireccion { get; set; } = string.Empty;
         public decimal Subtotal { get; set; }
         public decimal Iva { get; set; }
         public decimal Total { get; set; }

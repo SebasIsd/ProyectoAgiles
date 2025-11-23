@@ -123,9 +123,11 @@
 
     <div class="row mt-3 justify-content-end">
         <div class="col-md-4">
-            <h4 class="text-end">TOTAL: $@modelo.Total.ToString("0.00")</h4>
+            <h6>Subtotal: $@modelo.Subtotal.ToString("0.00")</h6>  <!-- Added explicit subtotal/IVA display -->
+            <h6>IVA (15%): $@modelo.Iva.ToString("0.00")</h6>
+            <h4 class="text-end">TOTAL: $@modelo.Total.ToString("0.00") </h4>
         </div>
-    </div>
+    </div>  
 
     <div class="mt-3 mb-5">
         <button type="submit" class="btn btn-success btn-lg">Guardar Factura</button>
@@ -253,50 +255,38 @@
 @code {
     private Modelo modelo = new();
     private List<Cliente> clientes = new();
-
-    // CORRECCIÓN 1: Usamos el DTO, no la entidad Producto
     private List<ProductoListaDto> productos = new();
-
-    // Variables para Cliente
     private Cliente? clienteSeleccionado;
     private bool mostrarModalClientes = false;
     private string _busquedaCliente = string.Empty;
     private List<Cliente> clientesFiltrados = new();
-
-    // Variables para Producto
     private bool mostrarModalProductos = false;
     private string _busquedaProducto = string.Empty;
     private List<ProductoListaDto> productosFiltrados = new();
     private DetalleModel? detalleEnEdicion;
-
     private string mensajeDebug = "Iniciando...";
+
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             mensajeDebug = "Cargando desde API...";
-
-            // Cargamos clientes (Entidad)
             clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/clientes") ?? new();
             clientesFiltrados = clientes;
-
-            // CORRECCIÓN 2: Cargamos Productos usando el Servicio de API (que devuelve DTOs)
-            // O usamos Http directo pero tipeado al DTO correcto
             productos = await ProductoApiService.ListarAsync() ?? new();
             productosFiltrados = productos;
-
             mensajeDebug = "Carga exitosa.";
         }
         catch (Exception ex)
         {
             mensajeDebug = $"ERROR CRÍTICO: {ex.Message}";
-            Console.WriteLine(ex);
-            await JS.InvokeVoidAsync("alert", "Error conectando con la API: " + ex.Message);
+            await Alert.Error("Error conectando con la API: " + ex.Message);
         }
     }
 
-    // --- LOGICA CLIENTES ---
+    // Cliente logic (unchanged, but using AlertService if needed)
+
     public string busquedaCliente
     {
         get => _busquedaCliente;
@@ -327,7 +317,8 @@
     private void CerrarModalClientes() => mostrarModalClientes = false;
     private void SeleccionarCliente(Cliente c) { clienteSeleccionado = c; modelo.ClienteId = c.Id; CerrarModalClientes(); }
 
-    // --- LOGICA PRODUCTOS ---
+    // Producto logic (unchanged except calling CalcularTotal())
+
     public string BusquedaProductoProp
     {
         get => _busquedaProducto;
@@ -347,11 +338,10 @@
         else
         {
             var term = _busquedaProducto.ToLower();
-            // CORRECCIÓN 3: Ajuste de filtros para propiedades string del DTO
             productosFiltrados = productos.Where(p =>
                 (p.Nombre?.ToLower().Contains(term) ?? false) ||
                 (p.Codigo?.ToLower().Contains(term) ?? false) ||
-                (p.Marca?.ToLower().Contains(term) ?? false)  // Marca ahora es string
+                (p.Marca?.ToLower().Contains(term) ?? false)
             ).ToList();
         }
     }
@@ -359,20 +349,19 @@
     private void AbrirModalProductos(DetalleModel item) { detalleEnEdicion = item; BusquedaProductoProp = ""; mostrarModalProductos = true; }
     private void CerrarModalProductos() { mostrarModalProductos = false; detalleEnEdicion = null; }
 
-    // CORRECCIÓN 4: Recibimos DTO en lugar de entidad
     private async Task SeleccionarProducto(ProductoListaDto p)
     {
         if (detalleEnEdicion != null)
         {
             detalleEnEdicion.ProductoId = p.Id;
-            // Si el DTO ya tiene precio, lo usamos, o buscamos el lote
             if (p.PrecioVentaActual > 0)
                 detalleEnEdicion.PrecioUnitario = p.PrecioVentaActual;
             else
                 await CargarPrecioDesdeLote(detalleEnEdicion);
         }
         CerrarModalProductos();
-        CalcularTotal();
+        CalcularTotal();  // Ensure total updates after selection
+        await CargarPrecioDesdeLote(detalleEnEdicion!);
     }
 
     private string ObtenerNombreProducto(int id)
@@ -381,7 +370,6 @@
         return prod != null ? prod.Nombre : "";
     }
 
-    // --- CALCULOS ---
     private void AgregarLinea() { modelo.Detalles.Add(new DetalleModel()); CalcularTotal(); }
     private void EliminarLinea(DetalleModel item) { modelo.Detalles.Remove(item); CalcularTotal(); }
 
@@ -397,6 +385,7 @@
             }
             catch { item.PrecioUnitario = 0; }
         }
+        CalcularTotal();  // Update after price load
     }
 
     private void CalcularTotal()
@@ -404,15 +393,23 @@
         modelo.Subtotal = modelo.Detalles.Sum(d => d.Cantidad * d.PrecioUnitario);
         modelo.Iva = Math.Round(modelo.Subtotal * 0.15m, 2);
         modelo.Total = modelo.Subtotal + modelo.Iva;
-        StateHasChanged();
+        StateHasChanged();  // Force re-render
     }
 
     private async Task Guardar()
     {
-        if (modelo.ClienteId == 0) { await JS.InvokeVoidAsync("alert", "ERROR: Debe seleccionar un cliente."); return; }
-        if (!modelo.Detalles.Any() || modelo.Detalles.All(d => d.ProductoId == 0)) { await JS.InvokeVoidAsync("alert", "ERROR: Debe agregar al menos un producto."); return; }
+        if (modelo.ClienteId == 0)
+        {
+            await Alert.Error("Debe seleccionar un cliente.");
+            return;
+        }
+        if (!modelo.Detalles.Any() || modelo.Detalles.All(d => d.ProductoId == 0))
+        {
+            await Alert.Error("Debe agregar al menos un producto.");
+            return;
+        }
 
-        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Generar factura por ${modelo.Total:0.00}?");
+        var confirmado = await Alert.Confirm("¿Generar factura?", $"Total: $${modelo.Total:0.00}");
         if (!confirmado) return;
 
         try
@@ -430,12 +427,12 @@
             var response = await Http.PostAsJsonAsync("api/facturas", dto);
             if (!response.IsSuccessStatusCode) throw new Exception(await response.Content.ReadAsStringAsync());
 
-            await JS.InvokeVoidAsync("alert", "Factura guardada correctamente.");
+            await Alert.Success("Factura guardada correctamente.");
             Nav.NavigateTo("/facturas");
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", "Error al guardar: " + ex.Message);
+            await Alert.Error("Error al guardar: " + ex.Message);
         }
     }
 

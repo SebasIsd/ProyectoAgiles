@@ -66,16 +66,25 @@ public class FacturaService : IFacturaService
             Id = factura.Id,
             Numero = factura.Numero,
             FechaEmision = factura.FechaEmision,
+            ClienteId = factura.ClienteId,
             ClienteNombre = factura.Cliente.Nombre,
+            ClienteIdentificacion = factura.Cliente.Identificacion,
+            ClienteTipoIdentificacion = factura.Cliente.TipoIdentificacion.ToString(),
+            ClienteEmail = factura.Cliente.Email,
+            ClienteTelefono = factura.Cliente.Telefono,
+            ClienteDireccion = factura.Cliente.Direccion,
             Subtotal = factura.Subtotal,
             Iva = factura.Iva,
             Total = factura.Total,
             Estado = factura.Estado,
             Detalles = factura.Detalles.Select(d => new FacturaDetalleDto
             {
-                ProductoNombre = d.Producto.Nombre,
+                ProductoId = d.ProductoId,
+                ProductoNombre = d.Producto.Nombre,  // Asegúrate de que Producto.Nombre esté completo
                 Cantidad = d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
+                PrecioUnitario = d.PrecioUnitario,  // Completa si está truncado en tu código
+                SubtotalLinea = d.SubtotalLinea,
+                ValorIva = d.ValorIva,
                 TotalLinea = d.TotalLinea
             }).ToList()
         };
