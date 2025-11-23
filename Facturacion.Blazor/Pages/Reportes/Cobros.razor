@@ -1,0 +1,105 @@
+@page "/reportes/cobros"
+@using Facturacion.Blazor.Services
+@using System.Linq
+@inject FacturaState FacturaState
+
+<PageTitle>Reporte de Cobros | Facturación Electrónica</PageTitle>
+
+<h3 class="mb-2">Reporte de Cobros</h3>
+<p class="text-muted mb-3">
+    Clientes con facturas pendientes de pago (deudores). Solo se consideran facturas cuyo estado es distinto de <strong>Pagada</strong>.
+</p>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold d-flex align-items-center">
+        <i class="bi bi-people-fill me-2"></i> Clientes deudores
+        <span class="ms-auto text-muted small">
+            Total adeudado: <strong>$ @TotalGeneralAdeudado.ToString("N2")</strong>
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover table-striped mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Cliente</th>
+                    <th class="text-center"># Facturas pendientes</th>
+                    <th class="text-end">Total adeudado</th>
+                    <th class="text-center">Última factura</th>
+                    <th class="text-center">Fecha última factura</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!clientesDeudores.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-3">
+                            No existen facturas pendientes de cobro. Todos los clientes están al día. 🎉
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var c in clientesDeudores)
+                    {
+                        <tr>
+                            <td>@c.Cliente</td>
+                            <td class="text-center">@c.NumeroFacturasPendientes</td>
+                            <td class="text-end">$ @c.TotalAdeudado.ToString("N2")</td>
+                            <td class="text-center">@c.UltimaFacturaNumero</td>
+                            <td class="text-center">@c.FechaUltimaFactura.ToString("dd/MM/yyyy")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="small text-muted">
+    <i class="bi bi-info-circle me-1"></i>
+    Este reporte se genera agrupando todas las facturas cuyo estado es diferente de <strong>Pagada</strong>.
+</div>
+
+@code {
+    private List<ClienteDeudorViewModel> clientesDeudores = new();
+    private decimal TotalGeneralAdeudado;
+
+    protected override void OnInitialized()
+    {
+        var facturas = FacturaState.GetAll();
+
+        // Solo facturas NO pagadas (Pendiente, Vencida, etc.)
+        var pendientes = facturas
+            .Where(f => !string.Equals(f.Estado, "Pagada", StringComparison.OrdinalIgnoreCase));
+
+        clientesDeudores = pendientes
+            .GroupBy(f => f.Cliente) // asumo que la propiedad se llama Cliente
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .Select(g =>
+            {
+                var ultima = g.OrderByDescending(f => f.Fecha).First();
+
+                return new ClienteDeudorViewModel
+                {
+                    Cliente = g.Key,
+                    NumeroFacturasPendientes = g.Count(),
+                    TotalAdeudado = g.Sum(f => f.Total),
+                    UltimaFacturaNumero = ultima.Numero,
+                    FechaUltimaFactura = ultima.Fecha
+                };
+            })
+            .OrderByDescending(c => c.TotalAdeudado)
+            .ToList();
+
+        TotalGeneralAdeudado = clientesDeudores.Sum(c => c.TotalAdeudado);
+    }
+
+    private class ClienteDeudorViewModel
+    {
+        public string Cliente { get; set; } = string.Empty;
+        public int NumeroFacturasPendientes { get; set; }
+        public decimal TotalAdeudado { get; set; }
+        public string UltimaFacturaNumero { get; set; } = string.Empty;
+        public DateTime FechaUltimaFactura { get; set; }
+    }
+}
