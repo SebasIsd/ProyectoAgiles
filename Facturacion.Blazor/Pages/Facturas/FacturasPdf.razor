@@ -1,0 +1,27 @@
+﻿@page "/facturas/pdf/{Id:int}"
+@inject NavigationManager Nav
+@using Facturacion.Blazor.Services
+@inject FacturaState FacturaState
+
+
+<PageTitle>Factura PDF</PageTitle>
+
+<h3 class="mb-3">Vista PDF de la Factura</h3>
+
+<div class="alert alert-info">
+    Aquí se mostrará o descargará el PDF oficial de la factura con formato SRI.
+    <br />
+    <small class="text-muted">
+        En una siguiente iteración se conectará esta pantalla con el servicio que genere el PDF.
+    </small>
+</div>
+
+<button class="btn btn-secondary" @onclick="Volver">
+    Volver a Facturación
+</button>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private void Volver() => Nav.NavigateTo("/facturas");
+}

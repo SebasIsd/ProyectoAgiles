@@ -1,0 +1,67 @@
+﻿@page "/facturas/detalle/{Id:int}"
+@inject NavigationManager Nav
+@using Facturacion.Blazor.Services
+@inject FacturaState FacturaState
+
+
+<PageTitle>Detalle de Factura</PageTitle>
+
+<h3 class="mb-3">Detalle de Factura</h3>
+
+@if (factura is null)
+{
+    <div class="alert alert-warning">
+        No se encontró la factura solicitada.
+    </div>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-header">
+            Factura @factura.Numero
+        </div>
+        <div class="card-body">
+            <p><strong>Cliente:</strong> @factura.Cliente</p>
+            <p><strong>Fecha:</strong> @factura.Fecha.ToString("dd/MM/yyyy")</p>
+            <p><strong>Subtotal:</strong> $ @factura.Subtotal.ToString("0.00")</p>
+            <p><strong>IVA:</strong> $ @factura.Iva.ToString("0.00")</p>
+            <p><strong>Total:</strong> $ @factura.Total.ToString("0.00")</p>
+            <p><strong>Estado:</strong> @factura.Estado</p>
+
+            <hr />
+            <p class="text-muted mb-0">
+                Aquí después se mostrará el detalle de productos, cantidades,
+                precios unitarios, IVA por ítem, etc.
+            </p>
+        </div>
+    </div>
+}
+
+<button class="btn btn-secondary" @onclick="Volver">
+    Volver a Facturación
+</button>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private FacturaItem? factura;
+
+    protected override void OnInitialized()
+    {
+        factura = FacturaState.GetById(Id);
+    }
+
+    private void Volver() => Nav.NavigateTo("/facturas");
+
+    private class FacturaDetalleViewModel
+    {
+        public int Id { get; set; }
+        public string Numero { get; set; } = string.Empty;
+        public DateTime Fecha { get; set; }
+        public string Cliente { get; set; } = string.Empty;
+        public decimal Subtotal { get; set; }
+        public decimal Iva { get; set; }
+        public decimal Total { get; set; }
+        public string Estado { get; set; } = string.Empty;
+    }
+}

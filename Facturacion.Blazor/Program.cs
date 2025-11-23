@@ -1,16 +1,13 @@
-﻿// Facturacion.Blazor/Program.cs
-
-using System;
-using System.Net.Http;
-using Microsoft.Extensions.DependencyInjection;
-
-using Blazored.LocalStorage;
+﻿using Facturacion.Blazor.Components;
+using Facturacion.Blazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using System;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Blazored.LocalStorage;
 
-using Facturacion.Blazor.Components;
-using Facturacion.Blazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -24,7 +21,7 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddBlazoredLocalStorage();
 
 // 1. URL de la API (Asegurando que sea http:// si la API no usa HTTPS)
-var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5183"; 
+var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5183";
 
 // 2. Handler que agrega el Bearer desde LocalStorage (Necesario)
 builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
@@ -56,5 +53,9 @@ builder.Services.AddScoped(sp =>
 // 6. Registramos los servicios que usan HttpClient, como ClienteApi
 builder.Services.AddScoped<ClienteApi>();
 
+
+
+// 👉 agrega esto:
+builder.Services.AddSingleton<FacturaState>();
 
 await builder.Build().RunAsync();

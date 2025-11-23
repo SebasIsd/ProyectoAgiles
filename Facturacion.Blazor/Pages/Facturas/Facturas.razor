@@ -1,0 +1,153 @@
+﻿@page "/facturas"
+@using Facturacion.Blazor.Services
+@inject NavigationManager Nav
+@inject FacturaState FacturaState
+
+<PageTitle>Facturación</PageTitle>
+
+<h3 class="mb-3">Facturación</h3>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" @onclick="IrANuevaFactura">
+        <i class="bi bi-file-earmark-plus"></i> Nueva Factura
+    </button>
+
+    <button class="btn btn-outline-secondary btn-sm" @onclick="Refrescar">
+        <i class="bi bi-arrow-clockwise"></i> Refrescar
+    </button>
+
+    <div class="ms-auto"></div>
+
+    <!-- 🔍 Buscador FUNCIONAL -->
+    <div class="input-group" style="max-width:320px">
+        <button class="btn btn-outline-secondary" type="button" @onclick="AplicarFiltro">
+            <i class="bi bi-search"></i>
+        </button>
+        <input class="form-control"
+               placeholder="Buscar por cliente o # factura"
+               @bind="SearchText"
+               @bind:event="oninput" />
+    </div>
+</div>
+
+<table class="table table-striped table-hover align-middle">
+    <thead>
+        <tr>
+            <th># Factura</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th>Subtotal</th>
+            <th>IVA</th>
+            <th>Total</th>
+            <th>Estado</th>
+            <th style="width: 190px;">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (!facturasFiltradas.Any())
+        {
+            <tr>
+                <td colspan="8" class="text-center text-muted">
+                    No se encontraron facturas para el criterio ingresado.
+                </td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var factura in facturasFiltradas)
+            {
+                <tr>
+                    <td>@factura.Numero</td>
+                    <td>@factura.Fecha.ToString("dd/MM/yyyy")</td>
+                    <td>@factura.Cliente</td>
+                    <td>$ @factura.Subtotal.ToString("0.00")</td>
+                    <td>$ @factura.Iva.ToString("0.00")</td>
+                    <td><strong>$ @factura.Total.ToString("0.00")</strong></td>
+                    <td>
+                        @switch (factura.Estado)
+                        {
+                            case "Pagada":
+                                <span class="badge bg-success">Pagada</span>
+                                break;
+                            case "Vencida":
+                                <span class="badge bg-danger">Vencida</span>
+                                break;
+                            default:
+                                <span class="badge bg-warning text-dark">@factura.Estado</span>
+                                break;
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm me-1"
+                                @onclick="() => IrADetalle(factura.Id)">
+                            Ver
+                        </button>
+
+                        <button class="btn btn-outline-secondary btn-sm me-1"
+                                @onclick="() => IrAPdf(factura.Id)">
+                            PDF
+                        </button>
+
+                        <button class="btn btn-outline-warning btn-sm"
+                                @onclick="() => IrAEditar(factura.Id)">
+                            Editar
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@code {
+    private IReadOnlyList<FacturaItem> facturas = Array.Empty<FacturaItem>();
+    private List<FacturaItem> facturasFiltradas = new();
+
+    // texto del buscador
+    private string _searchText = string.Empty;
+    private string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            _searchText = value;
+            AplicarFiltro(); // filtra mientras se escribe
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        facturas = FacturaState.GetAll();
+        facturasFiltradas = facturas.ToList();
+    }
+
+    private void AplicarFiltro()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            facturasFiltradas = facturas.ToList();
+            return;
+        }
+
+        var term = SearchText.Trim().ToLower();
+
+        facturasFiltradas = facturas
+            .Where(f =>
+                (!string.IsNullOrEmpty(f.Cliente) &&
+                 f.Cliente.ToLower().Contains(term)) ||
+                (!string.IsNullOrEmpty(f.Numero) &&
+                 f.Numero.ToLower().Contains(term)))
+            .ToList();
+    }
+
+    private void Refrescar()
+    {
+        facturas = FacturaState.GetAll();
+        AplicarFiltro(); // vuelve a aplicar el filtro con los datos actuales
+    }
+
+    private void IrANuevaFactura() => Nav.NavigateTo("/facturas/nueva");
+    private void IrADetalle(int id) => Nav.NavigateTo($"/facturas/detalle/{id}");
+    private void IrAPdf(int id) => Nav.NavigateTo($"/facturas/pdf/{id}");
+    private void IrAEditar(int id) => Nav.NavigateTo($"/facturas/editar/{id}");
+}

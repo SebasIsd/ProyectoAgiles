@@ -1,0 +1,298 @@
+﻿@page "/facturas/nueva"
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager Nav
+@using Facturacion.Blazor.Services
+@inject FacturaState FacturaState
+
+
+<PageTitle>Nueva Factura</PageTitle>
+
+<h3 class="mb-3">Nueva Factura</h3>
+
+<EditForm Model="@modelo" OnValidSubmit="@Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <!-- Datos generales -->
+    <div class="card mb-3">
+        <div class="card-header">Datos de la factura</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Número de factura</label>
+                    <InputText class="form-control" @bind-Value="modelo.Numero" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Fecha</label>
+                    <InputDate class="form-control"
+                               @bind-Value="modelo.Fecha"
+                               DateFormat="dd/MM/yyyy" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Cliente</label>
+                    <InputText class="form-control" @bind-Value="modelo.Cliente" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IVA -->
+    <div class="card mb-3">
+        <div class="card-header">Impuesto IVA</div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">IVA estándar</label>
+                    <InputSelect class="form-select"
+                                 disabled="@modelo.UsarIvaPersonalizado"
+                                 @bind-Value="modelo.IvaPorcentajeSeleccionado"
+                                 @onchange="OnIvaChange">
+                        <option value="0">0 %</option>
+                        <option value="15">15 %</option>
+                    </InputSelect>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-check mt-4">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="modelo.UsarIvaPersonalizado"
+                                       @onchange="OnIvaPersonalizadoChange" />
+                        <label class="form-check-label">
+                            Usar otro IVA (caso especial)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            @if (modelo.UsarIvaPersonalizado)
+            {
+                <div class="row g-3 mt-2">
+                    <div class="col-md-3">
+                        <label class="form-label">IVA personalizado (%)</label>
+                        <InputNumber class="form-control"
+                                     @bind-Value="modelo.IvaPorcentajePersonalizado"
+                                     @oninput="(_)=>RecalcularTotales()" />
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label">
+                            Justificación (obligatoria para IVA diferente a 0% o 15%)
+                        </label>
+                        <InputTextArea class="form-control"
+                                       rows="2"
+                                       @bind-Value="modelo.JustificacionIva" />
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(mensajeErrorIva))
+            {
+                <div class="text-danger mt-2">@mensajeErrorIva</div>
+            }
+        </div>
+    </div>
+
+    <!-- Productos -->
+    <div class="card mb-3">
+        <div class="card-header">Productos</div>
+        <div class="card-body">
+            <p class="text-muted">
+                Selecciona los productos e indica la cantidad. El subtotal, IVA y total
+                se calculan automáticamente.
+            </p>
+
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th style="width: 120px;">Precio</th>
+                        <th style="width: 120px;">Cantidad</th>
+                        <th style="width: 120px;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in modelo.Productos)
+                    {
+                        <tr>
+                            <td>@item.Nombre</td>
+                            <td>$ @item.PrecioUnitario.ToString("0.00")</td>
+                            <td>
+                                <InputNumber class="form-control form-control-sm"
+                                             @bind-Value="item.Cantidad"
+                                             @oninput="(_)=>OnCantidadChange(item)" />
+                            </td>
+                            <td>
+                                $ @(item.SubtotalLinea.ToString("0.00"))
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="card mb-3">
+        <div class="card-header">Resumen</div>
+        <div class="card-body row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Subtotal</label>
+                <input class="form-control" value="$ @modelo.Subtotal.ToString("0.00")" readonly />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">IVA (@modelo.IvaAplicadoPorcentaje %)</label>
+                <input class="form-control" value="$ @modelo.IvaMonto.ToString("0.00")" readonly />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Total</label>
+                <input class="form-control" value="$ @modelo.Total.ToString("0.00")" readonly />
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones -->
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-secondary" @onclick="Cancelar">
+            Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">
+            Guardar factura
+        </button>
+    </div>
+</EditForm>
+
+@code {
+    private NuevaFacturaModel modelo = new();
+    private string? mensajeErrorIva;
+
+    protected override void OnInitialized()
+    {
+        // Datos iniciales
+        modelo.Fecha = DateTime.Today;
+        modelo.IvaPorcentajeSeleccionado = 15;
+        modelo.Productos = new List<ProductoItem>
+        {
+            new() { Id = 1, Nombre = "Producto A", PrecioUnitario = 10m },
+            new() { Id = 2, Nombre = "Producto B", PrecioUnitario = 5.5m },
+            new() { Id = 3, Nombre = "Producto C", PrecioUnitario = 20m },
+        };
+
+        RecalcularTotales();
+    }
+
+    private void OnCantidadChange(ProductoItem item)
+    {
+        if (item.Cantidad < 0) item.Cantidad = 0;
+        item.SubtotalLinea = item.Cantidad * item.PrecioUnitario;
+        RecalcularTotales();
+    }
+
+    private void OnIvaChange(ChangeEventArgs _)
+    {
+        modelo.UsarIvaPersonalizado = false;
+        RecalcularTotales();
+    }
+
+    private void OnIvaPersonalizadoChange(ChangeEventArgs _)
+    {
+        // Al marcar/desmarcar el check recalculamos
+        if (!modelo.UsarIvaPersonalizado)
+        {
+            modelo.IvaPorcentajePersonalizado = null;
+            modelo.JustificacionIva = null;
+        }
+        RecalcularTotales();
+    }
+
+    private void RecalcularTotales()
+    {
+        mensajeErrorIva = null;
+
+        modelo.Subtotal = modelo.Productos.Sum(p => p.SubtotalLinea);
+
+        decimal ivaPorcentaje;
+        if (modelo.UsarIvaPersonalizado && modelo.IvaPorcentajePersonalizado.HasValue)
+        {
+            ivaPorcentaje = modelo.IvaPorcentajePersonalizado.Value;
+        }
+        else
+        {
+            ivaPorcentaje = modelo.IvaPorcentajeSeleccionado;
+        }
+
+        if (ivaPorcentaje < 0) ivaPorcentaje = 0;
+
+        modelo.IvaAplicadoPorcentaje = ivaPorcentaje;
+        modelo.IvaMonto = Math.Round(modelo.Subtotal * ivaPorcentaje / 100m, 2);
+        modelo.Total = modelo.Subtotal + modelo.IvaMonto;
+    }
+
+    private void Guardar()
+{
+    // Validación de IVA especial (lo que ya tenías)
+    if (modelo.UsarIvaPersonalizado)
+    {
+        if (!modelo.IvaPorcentajePersonalizado.HasValue ||
+            modelo.IvaPorcentajePersonalizado <= 0 ||
+            string.IsNullOrWhiteSpace(modelo.JustificacionIva))
+        {
+            mensajeErrorIva =
+                "Para usar un IVA diferente a 0% o 15% debes indicar el porcentaje y una justificación.";
+            return;
+        }
+    }
+
+    // Crear la factura "real" que irá al listado
+    var factura = new FacturaItem
+    {
+        Numero = modelo.Numero,
+        Fecha = modelo.Fecha,
+        Cliente = modelo.Cliente,
+        Subtotal = modelo.Subtotal,
+        Iva = modelo.IvaMonto,
+        Total = modelo.Total,
+        Estado = "Pendiente" // o lo que luego manejes
+    };
+
+    FacturaState.Add(factura);   // 👉 se guarda en memoria compartida
+    Nav.NavigateTo("/facturas"); // 👉 vuelve al listado
+}
+
+
+    private void Cancelar()
+        => Nav.NavigateTo("/facturas");
+
+    // ===== Modelos =====
+
+    private class NuevaFacturaModel
+    {
+        public string Numero { get; set; } = string.Empty;
+        public DateTime Fecha { get; set; } = DateTime.Today;
+        public string Cliente { get; set; } = string.Empty;
+
+        // IVA
+        public int IvaPorcentajeSeleccionado { get; set; } = 15;
+        public bool UsarIvaPersonalizado { get; set; }
+        public decimal? IvaPorcentajePersonalizado { get; set; }
+        public string? JustificacionIva { get; set; }
+
+        // Productos
+        public List<ProductoItem> Productos { get; set; } = new();
+
+        // Totales
+        public decimal Subtotal { get; set; }
+        public decimal IvaMonto { get; set; }
+        public decimal Total { get; set; }
+        public decimal IvaAplicadoPorcentaje { get; set; }
+    }
+
+    private class ProductoItem
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal PrecioUnitario { get; set; }
+        public int Cantidad { get; set; }
+        public decimal SubtotalLinea { get; set; }
+    }
+}
