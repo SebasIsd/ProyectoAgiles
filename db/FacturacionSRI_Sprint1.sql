@@ -127,6 +127,43 @@ CREATE TABLE [dbo].[ProductoLotes] (
     CONSTRAINT UQ_ProductoLotes_Lote UNIQUE (ProductoId, Lote)
 );
 GO
+-- =============================================
+-- TABLA: Facturas
+-- =============================================
+CREATE TABLE [dbo].[Facturas] (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    ClienteId INT NOT NULL,
+    Fecha DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+    Subtotal DECIMAL(18,4) NOT NULL DEFAULT 0,
+    Iva DECIMAL(18,4) NOT NULL DEFAULT 0,
+    Total DECIMAL(18,4) NOT NULL DEFAULT 0,
+    CreatedBy INT NOT NULL,
+    CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2(7) NULL,
+
+    CONSTRAINT FK_Facturas_Cliente FOREIGN KEY (ClienteId) REFERENCES Clientes(Id),
+    CONSTRAINT FK_Facturas_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+);
+GO
+
+-- =============================================
+-- TABLA: Detalles de Factura
+-- =============================================
+CREATE TABLE [dbo].[FacturaDetalles] (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    FacturaId INT NOT NULL,
+    ProductoLoteId INT NOT NULL,
+    Cantidad INT NOT NULL CHECK (Cantidad > 0),
+    PrecioUnitario DECIMAL(18,4) NOT NULL,
+    Subtotal DECIMAL(18,4) NOT NULL,
+    Iva DECIMAL(18,4) NOT NULL,
+    Total DECIMAL(18,4) NOT NULL,
+
+    CONSTRAINT FK_Detalles_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id),
+    CONSTRAINT FK_Detalles_ProductoLote FOREIGN KEY (ProductoLoteId) REFERENCES ProductoLotes(Id)
+);
+GO
+
 
 -- =============================================
 -- TRIGGERS UpdatedAt
