@@ -1,5 +1,6 @@
 ﻿@page "/facturas/detalle/{Id:int}"
 @using Facturacion.Application.DTOs
+@attribute [Authorize]
 @inject FacturaApiService Api
 @inject AlertService Alert
 @inject NavigationManager Nav
