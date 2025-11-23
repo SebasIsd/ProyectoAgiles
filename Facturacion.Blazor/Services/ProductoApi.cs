@@ -14,11 +14,27 @@ public class ProductoApi
     public Task<ProductoDetalleDto?> GetDetalleAsync(int id) =>
         _http.GetFromJsonAsync<ProductoDetalleDto>($"api/productos/{id}");
 
-    public Task Crear(CrearProductoDto dto) =>
-        _http.PostAsJsonAsync("api/productos", dto).ContinueWith(_ => { });
+    public async Task Crear(CrearProductoDto dto)
+{
+    var resp = await _http.PostAsJsonAsync("api/productos", dto);
 
-    public Task Actualizar(int id, ActualizarProductoDto dto) =>
-        _http.PutAsJsonAsync($"api/productos/{id}", dto).ContinueWith(_ => { });
+    if (!resp.IsSuccessStatusCode)
+    {
+        var error = await resp.Content.ReadAsStringAsync();
+        throw new Exception(error);
+    }
+}
+
+public async Task Actualizar(int id, ActualizarProductoDto dto)
+{
+    var resp = await _http.PutAsJsonAsync($"api/productos/{id}", dto);
+
+    if (!resp.IsSuccessStatusCode)
+    {
+        var error = await resp.Content.ReadAsStringAsync();
+        throw new Exception(error);
+    }
+}
 
     public Task CrearLote(CrearLoteDto dto) =>
         _http.PostAsJsonAsync("api/productos/lotes", dto).ContinueWith(_ => { });
