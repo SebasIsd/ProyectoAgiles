@@ -16,20 +16,29 @@ public class ProductoRepository : IProductoRepository
 
     public ProductoRepository(AppDbContext context) => _context = context;
 
+    // 🔥 AHORA CON Marca y Categoria
     public async Task<List<Producto>> GetAllActivosConLotesAsync() =>
         await _context.Productos
             .Where(p => p.Activo)
-            .Include(p => p.Lotes.Where(l => l.Activo))
+            .Include(p => p.Marca)                     // ← RELACIÓN MARCA
+            .Include(p => p.Categoria)                 // ← RELACIÓN CATEGORÍA
+            .Include(p => p.Lotes.Where(l => l.Activo))// ← LOTES ACTIVOS
             .OrderBy(p => p.Nombre)
             .ToListAsync();
 
+    // 🔥 AHORA CON Marca y Categoria
     public async Task<Producto?> GetByIdConLotesAsync(int id) =>
         await _context.Productos
-            .Include(p => p.Lotes.Where(l => l.Activo))
+            .Include(p => p.Marca)                     // ← RELACIÓN MARCA
+            .Include(p => p.Categoria)                 // ← RELACIÓN CATEGORÍA
+            .Include(p => p.Lotes.Where(l => l.Activo))// ← LOTES ACTIVOS
             .FirstOrDefaultAsync(p => p.Id == id && p.Activo);
 
     public async Task<Producto?> GetByCodigoAsync(string codigo) =>
-        await _context.Productos.FirstOrDefaultAsync(p => p.Codigo == codigo && p.Activo);
+        await _context.Productos
+            .Include(p => p.Marca)                     // ✔ opcional pero recomendado
+            .Include(p => p.Categoria)                 // ✔ opcional pero recomendado
+            .FirstOrDefaultAsync(p => p.Codigo == codigo && p.Activo);
 
     public async Task AddAsync(Producto producto)
     {
@@ -63,7 +72,6 @@ public class ProductoRepository : IProductoRepository
         await _context.ProductoLotes
             .FirstOrDefaultAsync(pl => pl.ProductoId == productoId && pl.Lote == lote && pl.Activo);
 
-    // Implementa el método:
     public async Task<List<CategoriaProducto>> GetCategoriasAsync()
     {
         return await _context.CategoriaProductos
