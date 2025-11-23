@@ -53,6 +53,7 @@ builder.Services.AddScoped(sp =>
 // 6. Registramos los servicios que usan HttpClient, como ClienteApi
 builder.Services.AddScoped<ClienteApi>();
 
+builder.Services.AddScoped<FacturaApi>();
 
 
 // 👉 agrega esto:

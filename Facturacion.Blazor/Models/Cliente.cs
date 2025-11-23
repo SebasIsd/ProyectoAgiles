@@ -4,6 +4,8 @@ namespace Facturacion.Blazor.Models;
 
 public class Cliente
 {
+     public int Id { get; set; }  // 👈 NECESARIO
+     
     [Required(ErrorMessage = "La cédula/RUC es obligatoria")]
     [StringLength(13, MinimumLength = 10, ErrorMessage = "Debe tener entre 10 y 13 dígitos")]
     public string Documento { get; set; } = string.Empty;
