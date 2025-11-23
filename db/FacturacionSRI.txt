@@ -193,11 +193,223 @@ SET @Prod2 = SCOPE_IDENTITY();
 
 -- Lotes
 INSERT INTO ProductoLotes (ProductoId, Lote, PrecioCompra, PrecioVenta, Stock, FechaIngreso, FechaVencimiento, CreatedBy)
-VALUES 
-VALUES 
+VALUES
 (@Prod1, 'L2025-001', 8.50, 12.00, 150, '2025-01-15', '2026-01-15', 1),
 (@Prod1, 'L2025-002', 8.70, 12.50, 80,  '2025-03-20', '2026-03-20', 1),
 (@Prod2, 'LTV-2025-A', 450.00, 699.99, 10, '2025-02-10', NULL, 1);
+GO
+-- 1. Empresa (tu negocio)
+CREATE TABLE Empresa (
+    Id INT PRIMARY KEY IDENTITY,
+    Ruc NVARCHAR(13) NOT NULL,
+    RazonSocial NVARCHAR(300) NOT NULL,
+    NombreComercial NVARCHAR(300),
+    DireccionMatriz NVARCHAR(300),
+    ContribuyenteEspecial NVARCHAR(10),
+    ObligadoContabilidad BIT NOT NULL DEFAULT 1,
+    LogoPath NVARCHAR(500),
+    Activo BIT DEFAULT 1
+);
+
+-- 2. Secuenciales (control de numeración)
+CREATE TABLE Secuenciales (
+    Id INT PRIMARY KEY IDENTITY,
+    Establecimiento CHAR(3) NOT NULL,      -- 001
+    PuntoEmision CHAR(3) NOT NULL,         -- 001
+    TipoComprobante CHAR(2) NOT NULL,      -- 01 = Factura
+    SecuencialActual INT NOT NULL DEFAULT 0,
+    Activo BIT DEFAULT 1,
+    UNIQUE(Establecimiento, PuntoEmision, TipoComprobante)
+);
+
+-- 3. Formas de pago SRI
+CREATE TABLE FormasPago (
+    Id INT PRIMARY KEY IDENTITY,
+    CodigoSRI NVARCHAR(2) NOT NULL,  -- 01, 15, 16, 17...20
+    Descripcion NVARCHAR(100) NOT NULL,
+    Activo BIT DEFAULT 1
+);
+
+-- 4. Facturas (cabecera)
+CREATE TABLE Facturas (
+    Id INT PRIMARY KEY IDENTITY,
+    Numero NVARCHAR(20) NOT NULL,                    -- 001-001-000000001
+    ClaveAcceso NVARCHAR(49) NULL,
+    FechaEmision DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    ClienteId INT NOT NULL,
+    Subtotal DECIMAL(18,4) NOT NULL,
+    TotalDescuento DECIMAL(18,4) NOT NULL DEFAULT 0,
+    Iva DECIMAL(18,4) NOT NULL,
+    Total DECIMAL(18,4) NOT NULL,
+    Estado NVARCHAR(20) NOT NULL DEFAULT 'Borrador', -- Borrador, Pendiente, Autorizada, Rechazada, Anulada
+    Ambiente TINYINT NOT NULL DEFAULT 1,             -- 1=Pruebas, 2=Producción
+    XmlFirmado XML NULL,
+    NumeroAutorizacion NVARCHAR(49) NULL,
+    FechaAutorizacion DATETIME2 NULL,
+    CreatedBy INT NOT NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2 NULL,
+    CONSTRAINT FK_Facturas_Cliente FOREIGN KEY (ClienteId) REFERENCES Clientes(Id),
+    CONSTRAINT FK_Facturas_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+);
+
+-- 5. Detalle de factura
+CREATE TABLE FacturaDetalles (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    ProductoId INT NOT NULL,
+    ProductoLoteId INT NULL,           -- opcional, para trazabilidad
+    Cantidad INT NOT NULL,
+    PrecioUnitario DECIMAL(18,4) NOT NULL,
+    SubtotalLinea DECIMAL(18,4) NOT NULL,
+    PorcentajeIva DECIMAL(5,2) NOT NULL DEFAULT 15,
+    ValorIva DECIMAL(18,4) NOT NULL,
+    TotalLinea DECIMAL(18,4) NOT NULL,
+    CONSTRAINT FK_FacturaDetalles_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_FacturaDetalles_Producto FOREIGN KEY (ProductoId) REFERENCES Productos(Id),
+    CONSTRAINT FK_FacturaDetalles_Lote FOREIGN KEY (ProductoLoteId) REFERENCES ProductoLotes(Id)
+);
+
+-- 6. Formas de pago de la factura
+CREATE TABLE FacturaFormasPago (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    FormaPagoId INT NOT NULL,
+    Valor DECIMAL(18,4) NOT NULL,
+    Plazo INT NULL,              -- días de crédito
+    UnidadTiempo NVARCHAR(10) NULL, -- dias, meses
+    CONSTRAINT FK_FacturaFormasPago_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_FacturaFormasPago_Forma FOREIGN KEY (FormaPagoId) REFERENCES FormasPago(Id)
+);
+
+-- 7. Log de comprobantes electrónicos (muy importante para SRI)
+CREATE TABLE ComprobantesElectronicos (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    ClaveAcceso NVARCHAR(49) NOT NULL,
+    EstadoSRI NVARCHAR(50) NULL, -- RECIBIDA, EN_PROCESO, AUTORIZADO, NO_AUTORIZADO
+    XmlEnviado XML NULL,
+    XmlRecibido XML NULL,
+    MensajeError NVARCHAR(MAX) NULL,
+    FechaEnvio DATETIME2 NULL,
+    FechaAutorizacion DATETIME2 NULL,
+    CONSTRAINT FK_Comprobantes_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id)
+);
+GO
+
+USE FacturacionSRI;
+GO
+
+-- =============================================
+-- 1. Añadir columnas de BaseEntity a las tablas que lo requieren
+-- =============================================
+
+-- Tabla Clientes (Ya la revisamos y necesita las columnas Activo/CreatedBy)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Clientes'))
+BEGIN
+    ALTER TABLE Clientes ADD Activo BIT NOT NULL DEFAULT 1;
+    PRINT 'Columna Activo agregada a Clientes';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Clientes'))
+BEGIN
+    ALTER TABLE Clientes ADD CreatedBy INT NOT NULL DEFAULT 1;
+    PRINT 'Columna CreatedBy agregada a Clientes';
+END
+
+-- La columna CreatedAt ya existe en el script original del Sprint 1, pero la ponemos con el tipo correcto (DATETIME2)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Clientes'))
+BEGIN
+    ALTER TABLE Clientes ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
+    PRINT 'Columna CreatedAt agregada a Clientes';
+END
+
+-- Tabla Productos
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Productos'))
+BEGIN
+    ALTER TABLE Productos ADD Activo BIT NOT NULL DEFAULT 1;
+    PRINT 'Columna Activo agregada a Productos';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Productos'))
+BEGIN
+    ALTER TABLE Productos ADD CreatedBy INT NOT NULL DEFAULT 1;
+    PRINT 'Columna CreatedBy agregada a Productos';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Productos'))
+BEGIN
+    ALTER TABLE Productos ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
+    PRINT 'Columna CreatedAt agregada a Productos';
+END
+
+-- Tabla Facturas
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Facturas'))
+BEGIN
+    ALTER TABLE Facturas ADD Activo BIT NOT NULL DEFAULT 1;
+    PRINT 'Columna Activo agregada a Facturas';
+END
+
+-- Facturas y Detalles requieren CreatedBy, CreatedAt, UpdatedAt
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Facturas'))
+BEGIN
+    ALTER TABLE Facturas ADD CreatedBy INT NOT NULL DEFAULT 1;
+    PRINT 'Columna CreatedBy agregada a Facturas';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Facturas'))
+BEGIN
+    ALTER TABLE Facturas ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
+    PRINT 'Columna CreatedAt agregada a Facturas';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'UpdatedAt' AND Object_ID = Object_ID(N'Facturas'))
+BEGIN
+    ALTER TABLE Facturas ADD UpdatedAt DATETIME2(7) NULL;
+    PRINT 'Columna UpdatedAt agregada a Facturas';
+END
+
+-- Tabla FacturaDetalles (Esta tabla hereda de BaseEntity)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'FacturaDetalles'))
+BEGIN
+    ALTER TABLE FacturaDetalles ADD Activo BIT NOT NULL DEFAULT 1;
+    PRINT 'Columna Activo agregada a FacturaDetalles';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'FacturaDetalles'))
+BEGIN
+    ALTER TABLE FacturaDetalles ADD CreatedBy INT NOT NULL DEFAULT 1;
+    PRINT 'Columna CreatedBy agregada a FacturaDetalles';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'FacturaDetalles'))
+BEGIN
+    ALTER TABLE FacturaDetalles ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
+    PRINT 'Columna CreatedAt agregada a FacturaDetalles';
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'UpdatedAt' AND Object_ID = Object_ID(N'FacturaDetalles'))
+BEGIN
+    ALTER TABLE FacturaDetalles ADD UpdatedAt DATETIME2(7) NULL;
+    PRINT 'Columna UpdatedAt agregada a FacturaDetalles';
+END
+
+GO
+
+-- =============================================
+-- 2. Crear las Foreign Keys (FK) para CreatedBy si no existen
+-- =============================================
+
+-- Asumiendo que la tabla Usuarios ya existe y tiene la PK: Id
+-- Clientes
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Clientes_CreatedBy_Usuarios_Id')
+BEGIN
+    ALTER TABLE Clientes
+    ADD CONSTRAINT FK_Clientes_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
+    REFERENCES Usuarios (Id)
+    ON DELETE RESTRICT;
+    PRINT 'FK_Clientes_CreatedBy_Usuarios_Id creada';
+END
 GO
 
 -- =============================================

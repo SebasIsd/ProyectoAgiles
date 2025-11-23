@@ -1,298 +1,460 @@
 ﻿@page "/facturas/nueva"
-@using Microsoft.AspNetCore.Components.Forms
+@inject FacturaApiService Api
+@inject Facturacion.Blazor.Services.ProductoApi ProductoApiService
+@inject AlertService Alert
 @inject NavigationManager Nav
-@using Facturacion.Blazor.Services
-@inject FacturaState FacturaState
+@using System.ComponentModel.DataAnnotations
+@using Facturacion.Application.DTOs
+@using Facturacion.Application.Dtos
+@using Facturacion.Domain.Entities
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JS
 
+<h3 class="mb-4">Nueva Factura</h3>
 
-<PageTitle>Nueva Factura</PageTitle>
-
-<h3 class="mb-3">Nueva Factura</h3>
+<div class="alert alert-warning">
+    <small>
+        <strong>Estado del sistema:</strong><br />
+        Clientes cargados: <strong>@clientes.Count</strong> <br />
+        Productos cargados: <strong>@productos.Count</strong> <br />
+        Mensaje de error: <span class="text-danger">@mensajeDebug</span>
+    </small>
+</div>
 
 <EditForm Model="@modelo" OnValidSubmit="@Guardar">
     <DataAnnotationsValidator />
-    <ValidationSummary />
+    <ValidationSummary class="alert alert-danger" />
 
-    <!-- Datos generales -->
     <div class="card mb-3">
-        <div class="card-header">Datos de la factura</div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">Número de factura</label>
-                    <InputText class="form-control" @bind-Value="modelo.Numero" />
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Fecha</label>
-                    <InputDate class="form-control"
-                               @bind-Value="modelo.Fecha"
-                               DateFormat="dd/MM/yyyy" />
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Cliente</label>
-                    <InputText class="form-control" @bind-Value="modelo.Cliente" />
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- IVA -->
-    <div class="card mb-3">
-        <div class="card-header">Impuesto IVA</div>
-        <div class="card-body">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label">IVA estándar</label>
-                    <InputSelect class="form-select"
-                                 disabled="@modelo.UsarIvaPersonalizado"
-                                 @bind-Value="modelo.IvaPorcentajeSeleccionado"
-                                 @onchange="OnIvaChange">
-                        <option value="0">0 %</option>
-                        <option value="15">15 %</option>
-                    </InputSelect>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="form-check mt-4">
-                        <InputCheckbox class="form-check-input"
-                                       @bind-Value="modelo.UsarIvaPersonalizado"
-                                       @onchange="OnIvaPersonalizadoChange" />
-                        <label class="form-check-label">
-                            Usar otro IVA (caso especial)
-                        </label>
+                <div class="col-md-6">
+                    <label class="form-label">Cliente <span class="text-danger">*</span></label>
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-primary" @onclick="AbrirModalClientes">
+                            <i class="bi bi-person-lines-fill"></i> Buscar Cliente
+                        </button>
                     </div>
-                </div>
-            </div>
 
-            @if (modelo.UsarIvaPersonalizado)
-            {
-                <div class="row g-3 mt-2">
-                    <div class="col-md-3">
-                        <label class="form-label">IVA personalizado (%)</label>
-                        <InputNumber class="form-control"
-                                     @bind-Value="modelo.IvaPorcentajePersonalizado"
-                                     @oninput="(_)=>RecalcularTotales()" />
-                    </div>
-                    <div class="col-md-9">
-                        <label class="form-label">
-                            Justificación (obligatoria para IVA diferente a 0% o 15%)
-                        </label>
-                        <InputTextArea class="form-control"
-                                       rows="2"
-                                       @bind-Value="modelo.JustificacionIva" />
-                    </div>
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(mensajeErrorIva))
-            {
-                <div class="text-danger mt-2">@mensajeErrorIva</div>
-            }
-        </div>
-    </div>
-
-    <!-- Productos -->
-    <div class="card mb-3">
-        <div class="card-header">Productos</div>
-        <div class="card-body">
-            <p class="text-muted">
-                Selecciona los productos e indica la cantidad. El subtotal, IVA y total
-                se calculan automáticamente.
-            </p>
-
-            <table class="table table-sm table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th style="width: 120px;">Precio</th>
-                        <th style="width: 120px;">Cantidad</th>
-                        <th style="width: 120px;">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in modelo.Productos)
+                    @if (clienteSeleccionado != null)
                     {
-                        <tr>
-                            <td>@item.Nombre</td>
-                            <td>$ @item.PrecioUnitario.ToString("0.00")</td>
-                            <td>
-                                <InputNumber class="form-control form-control-sm"
-                                             @bind-Value="item.Cantidad"
-                                             @oninput="(_)=>OnCantidadChange(item)" />
-                            </td>
-                            <td>
-                                $ @(item.SubtotalLinea.ToString("0.00"))
-                            </td>
-                        </tr>
+                        <div class="alert alert-info p-2">
+                            <p class="mb-1"><strong>Nombre:</strong> @clienteSeleccionado.Nombre</p>
+                            <p class="mb-1"><strong>ID:</strong> @clienteSeleccionado.Identificacion</p>
+                        </div>
                     }
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    else
+                    {
+                        <div class="text-danger small">Debe seleccionar un cliente.</div>
+                    }
+                </div>
 
-    <!-- Resumen -->
-    <div class="card mb-3">
-        <div class="card-header">Resumen</div>
-        <div class="card-body row g-3">
-            <div class="col-md-4">
-                <label class="form-label">Subtotal</label>
-                <input class="form-control" value="$ @modelo.Subtotal.ToString("0.00")" readonly />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">IVA (@modelo.IvaAplicadoPorcentaje %)</label>
-                <input class="form-control" value="$ @modelo.IvaMonto.ToString("0.00")" readonly />
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Total</label>
-                <input class="form-control" value="$ @modelo.Total.ToString("0.00")" readonly />
+                <div class="col-md-6">
+                    <label class="form-label">Fecha de Emisión</label>
+                    <InputDate @bind-Value="modelo.Fecha" class="form-control" />
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Botones -->
-    <div class="d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-secondary" @onclick="Cancelar">
-            Cancelar
-        </button>
-        <button type="submit" class="btn btn-primary">
-            Guardar factura
-        </button>
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center bg-light">
+            <strong>Detalle de Productos</strong>
+            <button type="button" class="btn btn-sm btn-primary" @onclick="AgregarLinea">
+                <i class="bi bi-plus-circle"></i> Agregar producto
+            </button>
+        </div>
+        <div class="card-body p-0">
+            @if (!modelo.Detalles.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <p>No hay productos. Clic en "Agregar producto".</p>
+                </div>
+            }
+            else
+            {
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 40%;">Producto</th>
+                            <th style="width: 15%;">Cantidad</th>
+                            <th style="width: 15%;">Precio</th>
+                            <th style="width: 20%;">Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in modelo.Detalles)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" readonly
+                                               value="@ObtenerNombreProducto(item.ProductoId)"
+                                               placeholder="Buscar..." />
+
+                                        <button type="button" class="btn btn-outline-primary"
+                                                @onclick="() => AbrirModalProductos(item)">
+                                            <i class="bi bi-search"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="item.Cantidad" class="form-control form-control-sm"
+                                                 min="1" @oninput="() => CalcularTotal()" />
+                                </td>
+                                <td>$@item.PrecioUnitario.ToString("0.00")</td>
+                                <td class="fw-bold">$@((item.Cantidad * item.PrecioUnitario).ToString("0.00"))</td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            @onclick="() => EliminarLinea(item)">
+                                        X
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <div class="row mt-3 justify-content-end">
+        <div class="col-md-4">
+            <h4 class="text-end">TOTAL: $@modelo.Total.ToString("0.00")</h4>
+        </div>
+    </div>
+
+    <div class="mt-3 mb-5">
+        <button type="submit" class="btn btn-success btn-lg">Guardar Factura</button>
+        <button type="button" class="btn btn-secondary ms-2" @onclick="Cancelar">Cancelar</button>
     </div>
 </EditForm>
 
+@if (mostrarModalClientes)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Buscar Cliente</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalClientes"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3"
+                           placeholder="Escriba nombre o cédula..."
+                           @bind="busquedaCliente"
+                           @bind:event="oninput" />
+
+                    <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                        @if (clientesFiltrados.Any())
+                        {
+                            @foreach (var c in clientesFiltrados)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action"
+                                        @onclick="() => SeleccionarCliente(c)">
+                                    <strong>@c.Nombre</strong> - <small>@c.Identificacion</small>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                No se encontraron resultados.
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CerrarModalClientes">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarModalProductos)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Buscar Producto</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalProductos"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-3"
+                           placeholder="Escriba nombre, código o marca..."
+                           @bind="BusquedaProductoProp"
+                           @bind:event="oninput" />
+
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Marca/Modelo</th>
+                                    <th>Stock</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (productosFiltrados.Any())
+                                {
+                                    @foreach (var p in productosFiltrados)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@p.Nombre</strong><br />
+                                                <small class="text-muted">@p.Codigo</small>
+                                            </td>
+                                            <td>@p.Marca - @p.Modelo</td>
+                                            <td>
+                                                @if (p.StockTotal > 0)
+                                                {
+                                                    <span class="badge bg-success">@p.StockTotal</span>
+                                                }
+                                                else
+                                                {
+
+                                                    <span class="badge bg-danger">0</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <button type="button"
+                                                        class="btn btn-sm @(p.StockTotal > 0 ? "btn-primary" : "btn-secondary")"
+                                                        disabled="@(p.StockTotal <= 0)"
+                                                        @onclick="() => SeleccionarProducto(p)">
+
+                                                    @(p.StockTotal > 0 ? "Seleccionar" : "Agotado")
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="4" class="text-center">No se encontraron productos.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CerrarModalProductos">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private NuevaFacturaModel modelo = new();
-    private string? mensajeErrorIva;
+    private Modelo modelo = new();
+    private List<Cliente> clientes = new();
 
-    protected override void OnInitialized()
+    // CORRECCIÓN 1: Usamos el DTO, no la entidad Producto
+    private List<ProductoListaDto> productos = new();
+
+    // Variables para Cliente
+    private Cliente? clienteSeleccionado;
+    private bool mostrarModalClientes = false;
+    private string _busquedaCliente = string.Empty;
+    private List<Cliente> clientesFiltrados = new();
+
+    // Variables para Producto
+    private bool mostrarModalProductos = false;
+    private string _busquedaProducto = string.Empty;
+    private List<ProductoListaDto> productosFiltrados = new();
+    private DetalleModel? detalleEnEdicion;
+
+    private string mensajeDebug = "Iniciando...";
+
+    protected override async Task OnInitializedAsync()
     {
-        // Datos iniciales
-        modelo.Fecha = DateTime.Today;
-        modelo.IvaPorcentajeSeleccionado = 15;
-        modelo.Productos = new List<ProductoItem>
+        try
         {
-            new() { Id = 1, Nombre = "Producto A", PrecioUnitario = 10m },
-            new() { Id = 2, Nombre = "Producto B", PrecioUnitario = 5.5m },
-            new() { Id = 3, Nombre = "Producto C", PrecioUnitario = 20m },
-        };
+            mensajeDebug = "Cargando desde API...";
 
-        RecalcularTotales();
-    }
+            // Cargamos clientes (Entidad)
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/clientes") ?? new();
+            clientesFiltrados = clientes;
 
-    private void OnCantidadChange(ProductoItem item)
-    {
-        if (item.Cantidad < 0) item.Cantidad = 0;
-        item.SubtotalLinea = item.Cantidad * item.PrecioUnitario;
-        RecalcularTotales();
-    }
+            // CORRECCIÓN 2: Cargamos Productos usando el Servicio de API (que devuelve DTOs)
+            // O usamos Http directo pero tipeado al DTO correcto
+            productos = await ProductoApiService.ListarAsync() ?? new();
+            productosFiltrados = productos;
 
-    private void OnIvaChange(ChangeEventArgs _)
-    {
-        modelo.UsarIvaPersonalizado = false;
-        RecalcularTotales();
-    }
-
-    private void OnIvaPersonalizadoChange(ChangeEventArgs _)
-    {
-        // Al marcar/desmarcar el check recalculamos
-        if (!modelo.UsarIvaPersonalizado)
-        {
-            modelo.IvaPorcentajePersonalizado = null;
-            modelo.JustificacionIva = null;
+            mensajeDebug = "Carga exitosa.";
         }
-        RecalcularTotales();
+        catch (Exception ex)
+        {
+            mensajeDebug = $"ERROR CRÍTICO: {ex.Message}";
+            Console.WriteLine(ex);
+            await JS.InvokeVoidAsync("alert", "Error conectando con la API: " + ex.Message);
+        }
     }
 
-    private void RecalcularTotales()
+    // --- LOGICA CLIENTES ---
+    public string busquedaCliente
     {
-        mensajeErrorIva = null;
-
-        modelo.Subtotal = modelo.Productos.Sum(p => p.SubtotalLinea);
-
-        decimal ivaPorcentaje;
-        if (modelo.UsarIvaPersonalizado && modelo.IvaPorcentajePersonalizado.HasValue)
+        get => _busquedaCliente;
+        set
         {
-            ivaPorcentaje = modelo.IvaPorcentajePersonalizado.Value;
+            _busquedaCliente = value;
+            FiltrarClientes();
+        }
+    }
+
+    private void FiltrarClientes()
+    {
+        if (string.IsNullOrWhiteSpace(_busquedaCliente))
+        {
+            clientesFiltrados = clientes;
         }
         else
         {
-            ivaPorcentaje = modelo.IvaPorcentajeSeleccionado;
+            var term = _busquedaCliente.ToLower();
+            clientesFiltrados = clientes.Where(c =>
+                (c.Nombre?.ToLower().Contains(term) ?? false) ||
+                (c.Identificacion?.ToLower().Contains(term) ?? false)
+            ).ToList();
         }
-
-        if (ivaPorcentaje < 0) ivaPorcentaje = 0;
-
-        modelo.IvaAplicadoPorcentaje = ivaPorcentaje;
-        modelo.IvaMonto = Math.Round(modelo.Subtotal * ivaPorcentaje / 100m, 2);
-        modelo.Total = modelo.Subtotal + modelo.IvaMonto;
     }
 
-    private void Guardar()
-{
-    // Validación de IVA especial (lo que ya tenías)
-    if (modelo.UsarIvaPersonalizado)
+    private void AbrirModalClientes() { busquedaCliente = ""; mostrarModalClientes = true; }
+    private void CerrarModalClientes() => mostrarModalClientes = false;
+    private void SeleccionarCliente(Cliente c) { clienteSeleccionado = c; modelo.ClienteId = c.Id; CerrarModalClientes(); }
+
+    // --- LOGICA PRODUCTOS ---
+    public string BusquedaProductoProp
     {
-        if (!modelo.IvaPorcentajePersonalizado.HasValue ||
-            modelo.IvaPorcentajePersonalizado <= 0 ||
-            string.IsNullOrWhiteSpace(modelo.JustificacionIva))
+        get => _busquedaProducto;
+        set
         {
-            mensajeErrorIva =
-                "Para usar un IVA diferente a 0% o 15% debes indicar el porcentaje y una justificación.";
-            return;
+            _busquedaProducto = value;
+            FiltrarProductos();
         }
     }
 
-    // Crear la factura "real" que irá al listado
-    var factura = new FacturaItem
+    private void FiltrarProductos()
     {
-        Numero = modelo.Numero,
-        Fecha = modelo.Fecha,
-        Cliente = modelo.Cliente,
-        Subtotal = modelo.Subtotal,
-        Iva = modelo.IvaMonto,
-        Total = modelo.Total,
-        Estado = "Pendiente" // o lo que luego manejes
-    };
-
-    FacturaState.Add(factura);   // 👉 se guarda en memoria compartida
-    Nav.NavigateTo("/facturas"); // 👉 vuelve al listado
-}
-
-
-    private void Cancelar()
-        => Nav.NavigateTo("/facturas");
-
-    // ===== Modelos =====
-
-    private class NuevaFacturaModel
-    {
-        public string Numero { get; set; } = string.Empty;
-        public DateTime Fecha { get; set; } = DateTime.Today;
-        public string Cliente { get; set; } = string.Empty;
-
-        // IVA
-        public int IvaPorcentajeSeleccionado { get; set; } = 15;
-        public bool UsarIvaPersonalizado { get; set; }
-        public decimal? IvaPorcentajePersonalizado { get; set; }
-        public string? JustificacionIva { get; set; }
-
-        // Productos
-        public List<ProductoItem> Productos { get; set; } = new();
-
-        // Totales
-        public decimal Subtotal { get; set; }
-        public decimal IvaMonto { get; set; }
-        public decimal Total { get; set; }
-        public decimal IvaAplicadoPorcentaje { get; set; }
+        if (string.IsNullOrWhiteSpace(_busquedaProducto))
+        {
+            productosFiltrados = productos;
+        }
+        else
+        {
+            var term = _busquedaProducto.ToLower();
+            // CORRECCIÓN 3: Ajuste de filtros para propiedades string del DTO
+            productosFiltrados = productos.Where(p =>
+                (p.Nombre?.ToLower().Contains(term) ?? false) ||
+                (p.Codigo?.ToLower().Contains(term) ?? false) ||
+                (p.Marca?.ToLower().Contains(term) ?? false)  // Marca ahora es string
+            ).ToList();
+        }
     }
 
-    private class ProductoItem
+    private void AbrirModalProductos(DetalleModel item) { detalleEnEdicion = item; BusquedaProductoProp = ""; mostrarModalProductos = true; }
+    private void CerrarModalProductos() { mostrarModalProductos = false; detalleEnEdicion = null; }
+
+    // CORRECCIÓN 4: Recibimos DTO en lugar de entidad
+    private async Task SeleccionarProducto(ProductoListaDto p)
     {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
+        if (detalleEnEdicion != null)
+        {
+            detalleEnEdicion.ProductoId = p.Id;
+            // Si el DTO ya tiene precio, lo usamos, o buscamos el lote
+            if (p.PrecioVentaActual > 0)
+                detalleEnEdicion.PrecioUnitario = p.PrecioVentaActual;
+            else
+                await CargarPrecioDesdeLote(detalleEnEdicion);
+        }
+        CerrarModalProductos();
+        CalcularTotal();
+    }
+
+    private string ObtenerNombreProducto(int id)
+    {
+        var prod = productos.FirstOrDefault(p => p.Id == id);
+        return prod != null ? prod.Nombre : "";
+    }
+
+    // --- CALCULOS ---
+    private void AgregarLinea() { modelo.Detalles.Add(new DetalleModel()); CalcularTotal(); }
+    private void EliminarLinea(DetalleModel item) { modelo.Detalles.Remove(item); CalcularTotal(); }
+
+    private async Task CargarPrecioDesdeLote(DetalleModel item)
+    {
+        if (item.ProductoId > 0)
+        {
+            try
+            {
+                var lote = await Http.GetFromJsonAsync<ProductoLote>($"api/productos/{item.ProductoId}/lote-fifo");
+                if (lote != null) item.PrecioUnitario = lote.PrecioVenta;
+                else item.PrecioUnitario = 0;
+            }
+            catch { item.PrecioUnitario = 0; }
+        }
+    }
+
+    private void CalcularTotal()
+    {
+        modelo.Subtotal = modelo.Detalles.Sum(d => d.Cantidad * d.PrecioUnitario);
+        modelo.Iva = Math.Round(modelo.Subtotal * 0.15m, 2);
+        modelo.Total = modelo.Subtotal + modelo.Iva;
+        StateHasChanged();
+    }
+
+    private async Task Guardar()
+    {
+        if (modelo.ClienteId == 0) { await JS.InvokeVoidAsync("alert", "ERROR: Debe seleccionar un cliente."); return; }
+        if (!modelo.Detalles.Any() || modelo.Detalles.All(d => d.ProductoId == 0)) { await JS.InvokeVoidAsync("alert", "ERROR: Debe agregar al menos un producto."); return; }
+
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Generar factura por ${modelo.Total:0.00}?");
+        if (!confirmado) return;
+
+        try
+        {
+            var dto = new CrearFacturaDto
+            {
+                ClienteId = modelo.ClienteId,
+                Detalles = modelo.Detalles.Where(d => d.ProductoId > 0).Select(d => new CrearFacturaDetalleDto
+                {
+                    ProductoId = d.ProductoId,
+                    Cantidad = d.Cantidad
+                }).ToList()
+            };
+
+            var response = await Http.PostAsJsonAsync("api/facturas", dto);
+            if (!response.IsSuccessStatusCode) throw new Exception(await response.Content.ReadAsStringAsync());
+
+            await JS.InvokeVoidAsync("alert", "Factura guardada correctamente.");
+            Nav.NavigateTo("/facturas");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Error al guardar: " + ex.Message);
+        }
+    }
+
+    protected void Cancelar() => Nav.NavigateTo("/facturas");
+
+    public class Modelo
+    {
+        public int ClienteId { get; set; }
+        public DateTime Fecha { get; set; } = DateTime.Today;
+        public List<DetalleModel> Detalles { get; set; } = new();
+        public decimal Subtotal { get; set; }
+        public decimal Iva { get; set; }
+        public decimal Total { get; set; }
+    }
+
+    public class DetalleModel
+    {
+        public int ProductoId { get; set; }
+        public int Cantidad { get; set; } = 1;
         public decimal PrecioUnitario { get; set; }
-        public int Cantidad { get; set; }
-        public decimal SubtotalLinea { get; set; }
     }
 }

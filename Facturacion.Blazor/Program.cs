@@ -1,12 +1,13 @@
-﻿using Facturacion.Blazor.Components;
+﻿using Blazored.LocalStorage;
+using CurrieTechnologies.Razor.SweetAlert2;
+using Facturacion.Blazor.Components;
 using Facturacion.Blazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Net.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Blazored.LocalStorage;
 
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -30,6 +31,9 @@ builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 builder.Services.AddScoped<ProductoApi>();     // <--- ¡ESTO ES LO QUE FALTA!
 builder.Services.AddScoped<AuthService>();     // Probablemente también necesites este
+builder.Services.AddScoped<FacturaApiService>();
+builder.Services.AddSweetAlert2();
+builder.Services.AddScoped<AlertService>();
 
 // 4. Configuración del CLIENTE NOMBRADO "API"
 // Este registro es usado por IHttpClientFactory en AuthService.cs.

@@ -19,9 +19,13 @@ public class AppDbContext : DbContext
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<ProductoLote> ProductoLotes => Set<ProductoLote>();  // ¡ESTO FALTABA!
                                                                       // Dentro de la clase AppDbContext agrega esto junto a los otros DbSet:
-    public DbSet<CategoriaProducto> CategoriaProductos => Set<CategoriaProducto>();
+    public DbSet<CategoriaProducto> CategoriaProductos => Categorias;
     public DbSet<Marca> Marca { get; set; }
     public DbSet<CategoriaProducto> Categorias { get; set; }
+
+    public DbSet<Factura> Facturas => Set<Factura>();
+    public DbSet<FacturaDetalle> FacturaDetalles => Set<FacturaDetalle>();
+    public DbSet<Secuencial> Secuenciales => Set<Secuencial>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -136,5 +140,26 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(pl => pl.CreatedBy)
             .OnDelete(DeleteBehavior.Restrict);
+
+
+        modelBuilder.Entity<Factura>(e =>
+        {
+            e.HasKey(f => f.Id);
+            e.Property(f => f.Numero).HasMaxLength(20).IsRequired();
+            e.HasIndex(f => f.Numero).IsUnique();
+        });
+
+        modelBuilder.Entity<FacturaDetalle>(e =>
+        {
+            e.HasKey(fd => fd.Id);
+            e.Property(fd => fd.PrecioUnitario).HasColumnType("decimal(18,4)");
+            e.Property(fd => fd.SubtotalLinea).HasColumnType("decimal(18,4)");
+            e.Property(fd => fd.ValorIva).HasColumnType("decimal(18,4)");
+            e.Property(fd => fd.TotalLinea).HasColumnType("decimal(18,4)");
+        });
+
+        modelBuilder.Entity<Secuencial>()
+            .HasIndex(s => new { s.Establecimiento, s.PuntoEmision })
+            .IsUnique();
     }
 }

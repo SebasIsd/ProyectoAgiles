@@ -1,27 +1,59 @@
 ﻿@page "/facturas/pdf/{Id:int}"
-@inject NavigationManager Nav
-@using Facturacion.Blazor.Services
-@inject FacturaState FacturaState
+@using Facturacion.Application.DTOs
+@using System.Net.Http.Json
+@inject HttpClient Http
 
-
-<PageTitle>Factura PDF</PageTitle>
-
-<h3 class="mb-3">Vista PDF de la Factura</h3>
-
-<div class="alert alert-info">
-    Aquí se mostrará o descargará el PDF oficial de la factura con formato SRI.
-    <br />
-    <small class="text-muted">
-        En una siguiente iteración se conectará esta pantalla con el servicio que genere el PDF.
-    </small>
-</div>
-
-<button class="btn btn-secondary" @onclick="Volver">
-    Volver a Facturación
-</button>
+@if (factura == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="container bg-white p-5" style="max-width: 800px; font-family: Arial;">
+        <div class="text-center mb-4">
+            <h2>FACTURA ELECTRÓNICA</h2>
+            <h4>@factura.Numero</h4>
+        </div>
+        <div class="row">
+            <div class="col-6">
+                <strong>Cliente:</strong> <br />
+                @factura.ClienteNombre
+            </div>
+            <div class="col-6 text-end">
+                <strong>Fecha:</strong> @factura.FechaEmision.ToString("dd/MM/yyyy")<br />
+                <strong>Estado:</strong> <span class="badge bg-success">@factura.Estado</span>
+            </div>
+        </div>
+        <table class="table table-bordered mt-4">
+            <thead class="table-light">
+                <tr><th>Producto</th><th>Cant.</th><th>P.Unit</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var d in factura.Detalles)
+                {
+                    <tr>
+                        <td>@d.ProductoNombre</td>
+                        <td>@d.Cantidad</td>
+                        <td>$@d.PrecioUnitario.ToString("0.00")</td>
+                        <td>$@d.TotalLinea.ToString("0.00")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="text-end">
+            <h5>Subtotal: $@factura.Subtotal.ToString("0.00")</h5>
+            <h5>IVA 15%: $@factura.Iva.ToString("0.00")</h5>
+            <h4><strong>TOTAL: $@factura.Total.ToString("0.00")</strong></h4>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public int Id { get; set; }
+    private FacturaDto? factura;
 
-    private void Volver() => Nav.NavigateTo("/facturas");
+    protected override async Task OnInitializedAsync()
+    {
+        factura = await Http.GetFromJsonAsync<FacturaDto>($"api/facturas/{Id}");
+    }
 }

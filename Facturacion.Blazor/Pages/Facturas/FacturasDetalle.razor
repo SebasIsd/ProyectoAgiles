@@ -1,67 +1,112 @@
 ﻿@page "/facturas/detalle/{Id:int}"
+@using Facturacion.Application.DTOs
+@inject FacturaApiService Api
+@inject AlertService Alert
 @inject NavigationManager Nav
-@using Facturacion.Blazor.Services
-@inject FacturaState FacturaState
-
 
 <PageTitle>Detalle de Factura</PageTitle>
 
-<h3 class="mb-3">Detalle de Factura</h3>
-
-@if (factura is null)
+@if (factura == null)
 {
-    <div class="alert alert-warning">
-        No se encontró la factura solicitada.
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
     </div>
 }
 else
 {
     <div class="card mb-3">
-        <div class="card-header">
-            Factura @factura.Numero
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Factura @factura.Numero</h3>
+            <span class="badge bg-success">@factura.Estado</span>
         </div>
         <div class="card-body">
-            <p><strong>Cliente:</strong> @factura.Cliente</p>
-            <p><strong>Fecha:</strong> @factura.Fecha.ToString("dd/MM/yyyy")</p>
-            <p><strong>Subtotal:</strong> $ @factura.Subtotal.ToString("0.00")</p>
-            <p><strong>IVA:</strong> $ @factura.Iva.ToString("0.00")</p>
-            <p><strong>Total:</strong> $ @factura.Total.ToString("0.00")</p>
-            <p><strong>Estado:</strong> @factura.Estado</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> @factura.ClienteNombre</p>
+                    <p><strong>Fecha:</strong> @factura.FechaEmision.ToString("dd/MM/yyyy")</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p><strong>Subtotal:</strong> $ @factura.Subtotal.ToString("0.00")</p>
+                    <p><strong>IVA (15%):</strong> $ @factura.Iva.ToString("0.00")</p>
+                    <hr />
+                    <h4><strong>Total:</strong> $ @factura.Total.ToString("0.00")</h4>
+                </div>
+            </div>
 
             <hr />
-            <p class="text-muted mb-0">
-                Aquí después se mostrará el detalle de productos, cantidades,
-                precios unitarios, IVA por ítem, etc.
-            </p>
+
+            @if (factura.Detalles.Any())
+            {
+                <h5>Detalle de Productos</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unitario</th>
+                                <th>Subtotal</th>
+                                <th>IVA</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detalle in factura.Detalles)
+                            {
+                                <tr>
+                                    <td>@detalle.ProductoNombre</td>
+                                    <td>@detalle.Cantidad</td>
+                                    <td>$ @detalle.PrecioUnitario.ToString("0.00")</td>
+                                    <td>$ @detalle.SubtotalLinea.ToString("0.00")</td>
+                                    <td>$ @detalle.ValorIva.ToString("0.00")</td>
+                                    <td><strong>$ @detalle.TotalLinea.ToString("0.00")</strong></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">No hay productos en esta factura.</p>
+            }
         </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" @onclick="Volver">
+            <i class="bi bi-arrow-left"></i> Volver
+        </button>
+        <button class="btn btn-outline-primary ms-auto" @onclick="NavToPdf">
+            <i class="bi bi-file-earmark-pdf"></i> Descargar PDF
+        </button>
     </div>
 }
 
-<button class="btn btn-secondary" @onclick="Volver">
-    Volver a Facturación
-</button>
-
 @code {
     [Parameter] public int Id { get; set; }
+    private FacturaDto? factura;
 
-    private FacturaItem? factura;
-
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        factura = FacturaState.GetById(Id);
+        try
+        {
+            factura = await Api.GetByIdAsync(Id);
+            if (factura == null)
+            {
+                await Alert.Error("Factura no encontrada");
+                Nav.NavigateTo("/facturas");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Alert.Error("Error al cargar la factura", ex.Message);
+            Nav.NavigateTo("/facturas");
+        }
     }
 
     private void Volver() => Nav.NavigateTo("/facturas");
-
-    private class FacturaDetalleViewModel
-    {
-        public int Id { get; set; }
-        public string Numero { get; set; } = string.Empty;
-        public DateTime Fecha { get; set; }
-        public string Cliente { get; set; } = string.Empty;
-        public decimal Subtotal { get; set; }
-        public decimal Iva { get; set; }
-        public decimal Total { get; set; }
-        public string Estado { get; set; } = string.Empty;
-    }
+    private void NavToPdf() => Nav.NavigateTo($"/facturas/pdf/{Id}");
 }

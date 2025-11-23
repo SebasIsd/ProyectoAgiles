@@ -4,25 +4,30 @@ using Facturacion.Application.Services;
 using Facturacion.Domain.Entities;
 using Facturacion.Domain.Interfaces;
 using Facturacion.Infrastructure.Persistence;
+using Facturacion.Infrastructure.Persistence.Repositories;
 using Facturacion.Infrastructure.Repositories;
 using Facturacion.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json.Serialization;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Esta instrucción le dice a la API: "Si ves un objeto repetido (bucle), ignóralo"
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Base de datos
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("connectionDB"),
-        b => b.MigrationsAssembly("Facturacion.Infrastructure")
-    ));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("connectionDB")));
 
 // Repositorios y servicios
 builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
@@ -30,6 +35,8 @@ builder.Services.AddScoped<IProductoService, ProductoService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IFacturaService, FacturaService>();
 
 // JWT (no toco tu configuración, solo la dejo igual)
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -73,7 +80,7 @@ app.MapControllers();
 // ===================================================
 // SEMBRADO DE DATOS DE PRUEBA (CORREGIDO AL 100%)
 // ===================================================
-using (var scope = app.Services.CreateScope())
+/*using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     context.Database.Migrate();
@@ -237,7 +244,20 @@ using (var scope = app.Services.CreateScope())
         await context.SaveChangesAsync();
         Console.WriteLine("Clientes de ejemplo creados");
     }
-}
+
+    if (!context.Secuenciales.Any())
+    {
+        context.Secuenciales.Add(new Secuencial
+        {
+            Establecimiento = "001",
+            PuntoEmision = "001",
+            SecuencialActual = 0,
+            TipoComprobante = "01" // Tipo de comprobante para facturas
+        });
+        await context.SaveChangesAsync();
+        Console.WriteLine("Secuencial inicial creado.");
+    }
+}*/
 
 app.MapGet("/ping", () => "API Facturación SRI - Todo OK!");
 
