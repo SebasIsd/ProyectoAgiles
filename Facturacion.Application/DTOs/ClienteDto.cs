@@ -30,6 +30,7 @@ public class CrearClienteDto
 
     [Required(ErrorMessage = "Su correo es obligatorio")]
     public string? Email { get; set; }
+
 }
 
 public class ActualizarClienteDto

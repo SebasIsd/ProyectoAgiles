@@ -296,6 +296,18 @@ CREATE TABLE ComprobantesElectronicos (
     CONSTRAINT FK_Comprobantes_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id)
 );
 GO
+INSERT INTO Empresa (Ruc, RazonSocial, NombreComercial, DireccionMatriz, ContribuyenteEspecial, ObligadoContabilidad, LogoPath, Activo)
+VALUES (
+    '1850421312001', -- RUC de ejemplo (debes usar el tuyo)
+    'EMPRESA DE PRUEBA S.A.', -- RazonSocial
+    'EMPRESA PRUEBA', -- NombreComercial
+    'AV. PRINCIPAL N123 Y CALLE SEGUNDA, QUITO', -- DireccionMatriz
+    NULL, -- ContribuyenteEspecial (si aplica, sino dejar NULL)
+    1, -- ObligadoContabilidad (1=SI, 0=NO)
+    NULL, -- LogoPath (opcional)
+    1  -- Activo
+);
+GO
 
 USE FacturacionSRI;
 GO

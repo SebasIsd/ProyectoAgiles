@@ -15,35 +15,36 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="dashboard">Inicio</NavLink>
-                    </li>
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="/clientes/lista">Clientes</NavLink>
-                    </li>
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="/productos/lista">Productos</NavLink>
-                    </li>
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="lotes" Match="NavLinkMatch.All">Lotes</NavLink>
-                    </li>
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="facturas" Match="NavLinkMatch.All">Facturación</NavLink>
-                    </li>
-                    <li class="nav-item">
-                    <NavLink class="nav-link" href="/reportes/cobros" Match="NavLinkMatch.All">Cobros</NavLink>
-                    </li>
-
-                </ul>
-
                 <AuthorizeView>
                     <Authorized>
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="dashboard">Inicio</NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="/clientes/lista">Clientes</NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="/productos/lista">Productos</NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="/lotes/listar" Match="NavLinkMatch.All">Lotes</NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="facturas" Match="NavLinkMatch.All">Facturación</NavLink>
+                            </li>
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="/reportes/cobros" Match="NavLinkMatch.All">Cobros</NavLink>
+                            </li>
+
+                        </ul>
                         <span class="navbar-text me-3 text-light">Hola, @context.User.Identity?.Name</span>
                         <a class="btn btn-outline-danger btn-sm" href="logout">Salir</a>
                     </Authorized>
                     <NotAuthorized>
-                        <a class="btn btn-outline-light btn-sm" href="login">Entrar</a>
+                        <div class="ms-auto">
+                            <a class="btn btn-outline-light btn-sm" href="login">Entrar</a>
+                        </div>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>

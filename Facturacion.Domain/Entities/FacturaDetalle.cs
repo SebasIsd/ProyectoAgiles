@@ -11,7 +11,7 @@ public class FacturaDetalle : BaseEntity
     public virtual Factura Factura { get; set; } = null!;
 
     public int ProductoId { get; set; }
-    public virtual Producto Producto { get; set; } = null!;
+    public Producto Producto { get; set; } = null!;
 
     public int? ProductoLoteId { get; set; }
     public virtual ProductoLote? Lote { get; set; }

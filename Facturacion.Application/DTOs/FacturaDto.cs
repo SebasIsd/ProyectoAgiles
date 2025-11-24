@@ -34,5 +34,6 @@ namespace Facturacion.Application.DTOs
         public decimal SubtotalLinea { get; set; }  // AGREGADO para detalle
         public decimal ValorIva { get; set; }  // AGREGADO para detalle
         public decimal TotalLinea { get; set; }
+        public string? ProductoCodigo { get; set; }
     }
 }

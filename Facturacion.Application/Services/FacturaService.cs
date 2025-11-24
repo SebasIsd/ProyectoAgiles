@@ -82,6 +82,7 @@ public class FacturaService : IFacturaService
                 ProductoId = d.ProductoId,
                 ProductoNombre = d.Producto.Nombre,  // Asegúrate de que Producto.Nombre esté completo
                 Cantidad = d.Cantidad,
+                ProductoCodigo = d.Producto.Codigo,
                 PrecioUnitario = d.PrecioUnitario,  // Completa si está truncado en tu código
                 SubtotalLinea = d.SubtotalLinea,
                 ValorIva = d.ValorIva,

@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
     public DbSet<Factura> Facturas => Set<Factura>();
     public DbSet<FacturaDetalle> FacturaDetalles => Set<FacturaDetalle>();
     public DbSet<Secuencial> Secuenciales => Set<Secuencial>();
+    public DbSet<Empresa> Empresas { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

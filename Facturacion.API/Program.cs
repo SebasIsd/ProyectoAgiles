@@ -38,6 +38,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IFacturaService, FacturaService>();
 builder.Services.AddScoped<IRepository<FacturaDetalle>, Repository<FacturaDetalle>>();
+builder.Services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+builder.Services.AddScoped<IEmpresaService, EmpresaService>();
 
 // JWT (no toco tu configuración, solo la dejo igual)
 var jwtKey = builder.Configuration["Jwt:Key"]!;

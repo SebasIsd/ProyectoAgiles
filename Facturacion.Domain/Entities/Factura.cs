@@ -22,6 +22,7 @@ public class Factura : BaseEntity
 
     [StringLength(20)]
     public string Estado { get; set; } = "Borrador"; // Borrador, Emitida, Autorizada, etc.
+    public byte Ambiente { get; set; } = 1;
 
     public int CreatedBy { get; set; }
     //public virtual Usuario CreatedByUser { get; set; } = null!;
