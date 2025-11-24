@@ -68,7 +68,7 @@ else
                 @foreach (var lote in lotesFiltrados)
                 {
                     <tr>
-                        <td>@lote.LoteId</td>
+                        <td>@lote.Id</td> <!-- ⭐⭐ CAMBIÉ LoteId por Id ⭐⭐ -->
                         <td>@lote.ProductoCodigo</td>
                         <td>@lote.ProductoNombre</td>
                         <td>@lote.ProductoCategoria</td>
@@ -85,7 +85,7 @@ else
                         </td>
                         <td>
                             <button class="btn btn-outline-warning btn-sm"
-                                    @onclick="@(() => IrAEditarLote(lote.LoteId))">
+                                    @onclick="@(() => IrAEditarLote(lote.Id))"> <!-- ⭐⭐ CAMBIÉ LoteId por Id ⭐⭐ -->
                                 Editar
                             </button>
                         </td>
@@ -121,7 +121,7 @@ else
     private async Task CargarLotes()
     {
         cargando = true;
-        StateHasChanged(); // Forzar re-render para mostrar spinner
+        StateHasChanged();
 
         await LoteState.CargarLotesAsync();
         lotes = LoteState.GetAll();

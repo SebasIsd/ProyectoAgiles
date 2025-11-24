@@ -13,6 +13,11 @@ namespace Facturacion.Blazor.Services
             _loteApiService = loteApiService;
         }
 
+        public void Add(LoteItem lote)
+        {
+            _lotes.Add(lote);
+        }
+
         public IReadOnlyList<LoteItem> GetAll()
         {
             return _lotes.AsReadOnly();
@@ -55,7 +60,7 @@ namespace Facturacion.Blazor.Services
             try
             {
                 bool resultado;
-                if (lote.LoteId == 0)
+                if (lote.Id == 0)  // ⭐⭐ CAMBIÉ LoteId por Id ⭐⭐
                 {
                     resultado = await _loteApiService.CreateAsync(lote);
                 }

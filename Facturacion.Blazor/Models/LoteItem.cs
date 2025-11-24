@@ -1,23 +1,27 @@
 // Facturacion.Blazor/Models/LoteItem.cs
-using System;
-
-namespace Facturacion.Blazor.Models
+public class LoteItem
 {
-    public class LoteItem
-    {
-        public int LoteId { get; set; }
-        public string ProductoCodigo { get; set; } = string.Empty;
-        public string ProductoNombre { get; set; } = string.Empty;
-        public string ProductoCategoria { get; set; } = string.Empty;
-        public DateTime FechaCompra { get; set; }
-        public DateTime? FechaExpiracion { get; set; }
-        public decimal PrecioCosto { get; set; }
-        public decimal PVP { get; set; }
-        public int CantidadInicial { get; set; }
-        public int CantidadDisponible { get; set; }
-        public string Estado { get; set; } = "Activo";
-        
-        // Propiedad adicional para el mapeo desde el backend
-        public int ProductoId { get; set; }
-    }
+    public int Id { get; set; }  // Cambiar de LoteId a Id
+    public int ProductoId { get; set; }
+    public string Lote { get; set; } = string.Empty;
+    public decimal PrecioCompra { get; set; }  // Cambiar de PrecioCosto
+    public decimal PrecioVenta { get; set; }   // Cambiar de PVP
+    public int Stock { get; set; }             // Cambiar de CantidadInicial/Disponible
+    public DateTime FechaIngreso { get; set; } // Cambiar de FechaCompra
+    public DateTime? FechaVencimiento { get; set; } // Cambiar de FechaExpiracion
+    public bool Activo { get; set; }           // Cambiar de Estado
+
+    // Propiedades desde JOIN (deben venir del backend)
+    public string? ProductoNombre { get; set; }
+    public string? ProductoCodigo { get; set; }
+    public string? ProductoCategoria { get; set; }
+
+    // Propiedades calculadas para la UI
+    public string Estado => Activo ? "Activo" : "Inactivo";
+    public int CantidadInicial => Stock;
+    public int CantidadDisponible => Stock;
+    public decimal PrecioCosto => PrecioCompra;
+    public decimal PVP => PrecioVenta;
+    public DateTime FechaCompra => FechaIngreso;
+    public DateTime? FechaExpiracion => FechaVencimiento;
 }

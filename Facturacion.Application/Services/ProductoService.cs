@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
 using Facturacion.Application.DTOs;
 using Facturacion.Application.Interfaces;
 using Facturacion.Domain.Entities;
@@ -26,8 +25,8 @@ public class ProductoService : IProductoService
             Id = p.Id,
             Nombre = p.Nombre,
             Codigo = p.Codigo,
-            Marca = p.Marca?.Nombre ?? "Sin marca",        // ← aquí estaba el error
-            Modelo = p.Modelo,                             // ← sigue siendo string
+            Marca = p.Marca?.Nombre ?? "Sin marca",
+            Modelo = p.Modelo,
             StockTotal = p.Lotes.Sum(l => l.Stock),
             PrecioVentaActual = p.Lotes
                 .Where(l => l.Stock > 0)
@@ -85,9 +84,9 @@ public class ProductoService : IProductoService
             Codigo = dto.Codigo,
             CodigoBarra = dto.CodigoBarra,
             Descripcion = dto.Descripcion,
-            MarcaId = dto.MarcaId,           // ← ahora es int?
+            MarcaId = dto.MarcaId,
             CategoriaId = dto.CategoriaId,
-            Modelo = dto.Modelo,             // ← string normal
+            Modelo = dto.Modelo,
             CreatedBy = userId,
             Activo = true
         };
@@ -142,16 +141,31 @@ public class ProductoService : IProductoService
 
         await _repo.AddLoteAsync(lote);
     }
+
     public async Task<List<CategoriaDto>> GetCategoriasAsync()
     {
-        // 1. Llama al Repositorio (Devuelve List<CategoriaProducto>)
         var categorias = await _repo.GetCategoriasAsync();
-
-        // 2. Convierte la Entidad a DTO (Devuelve List<CategoriaDto>)
         return categorias.Select(c => new CategoriaDto
         {
             Id = c.Id,
             Nombre = c.Nombre
         }).ToList();
+    }
+
+    public async Task<List<ProductoComboDto>> GetComboProductosAsync()
+    {
+        var productos = await _repo.GetAllActivosConLotesAsync();
+        
+        return productos
+            .Where(p => p.Activo)
+            .Select(p => new ProductoComboDto
+            {
+                Id = p.Id,
+                Codigo = p.Codigo ?? "SIN-CODIGO",
+                Nombre = p.Nombre,
+                Categoria = p.Categoria?.Nombre
+            })
+            .OrderBy(p => p.Nombre)
+            .ToList();
     }
 }
