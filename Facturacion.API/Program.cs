@@ -1,4 +1,5 @@
 // Program.cs → Versión 100% corregida y funcional (2025)
+using Facturacion.Application.Config;
 using Facturacion.Application.Interfaces;
 using Facturacion.Application.Services;
 using Facturacion.Domain.Entities;
@@ -10,8 +11,8 @@ using Facturacion.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text.Json.Serialization;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,7 @@ builder.Services.AddScoped<IFacturaService, FacturaService>();
 builder.Services.AddScoped<IRepository<FacturaDetalle>, Repository<FacturaDetalle>>();
 builder.Services.AddScoped<IEmpresaRepository, EmpresaRepository>();
 builder.Services.AddScoped<IEmpresaService, EmpresaService>();
+builder.Services.Configure<SriConfig>(builder.Configuration.GetSection(SriConfig.SectionName));
 
 // JWT (no toco tu configuración, solo la dejo igual)
 var jwtKey = builder.Configuration["Jwt:Key"]!;

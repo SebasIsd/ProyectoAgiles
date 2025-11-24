@@ -24,7 +24,10 @@ public class Factura : BaseEntity
     public string Estado { get; set; } = "Borrador"; // Borrador, Emitida, Autorizada, etc.
     public byte Ambiente { get; set; } = 1;
 
+    //Esta es la linea que si funciona para evitar la referencia circular
     public int CreatedBy { get; set; }
+
+    //Se comento la linea que crea el problema de referencia circular
     //public virtual Usuario CreatedByUser { get; set; } = null!;
 
     // Navegación
