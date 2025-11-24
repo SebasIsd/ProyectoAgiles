@@ -31,6 +31,8 @@ builder.Services.AddScoped<CustomAuthorizationMessageHandler>();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 builder.Services.AddScoped<ProductoApi>();     // <--- ¡ESTO ES LO QUE FALTA!
 builder.Services.AddScoped<AuthService>();     // Probablemente también necesites este
+builder.Services.AddScoped<ILoteApiService, LoteApiService>();
+builder.Services.AddScoped<LoteState>();
 builder.Services.AddScoped<FacturaApiService>();
 builder.Services.AddSweetAlert2();
 builder.Services.AddScoped<AlertService>();
