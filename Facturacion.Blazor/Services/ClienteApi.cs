@@ -1,5 +1,6 @@
 // Facturacion.Blazor/Services/ClienteApi.cs
 using Facturacion.Application.DTOs;
+using System.Net.Http;
 using System.Net.Http.Json;
 using static System.Net.WebRequestMethods;
 
@@ -31,4 +32,14 @@ public class ClienteApi
 
     public Task DesactivarAsync(int id) =>
         _http.DeleteAsync($"api/clientes/{id}");
+
+    public Task<List<ClienteDto>> GetClientesNuevosMesAsync() =>
+        _http.GetFromJsonAsync<List<ClienteDto>>("api/clientes/clientes-nuevos-mes") ?? Task.FromResult(new List<ClienteDto>());
+
+    public async Task<List<ClienteDto>> GetClientesRecientesAsync(int top)
+    {
+        var response = await _http.GetAsync($"api/clientes/recientes/{top}");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<ClienteDto>>() ?? new List<ClienteDto>();
+    }
 }

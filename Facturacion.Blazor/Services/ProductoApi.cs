@@ -46,4 +46,11 @@ public class ProductoApi
             return new();
         }
     }
+    public async Task<int> GetProductosVendidosMesAsync()
+    {
+        // Asume que el API tiene un endpoint /api/productos/vendidos-mes que devuelve un int
+        // Si no tienes este endpoint, puedes devolver 0 o implementarlo.
+        return await _http.GetFromJsonAsync<int>("api/productos/vendidos-mes");
+    }
+
 }

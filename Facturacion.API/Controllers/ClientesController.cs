@@ -1,5 +1,6 @@
 ﻿using Facturacion.Application.DTOs;
 using Facturacion.Application.Interfaces;
+using Facturacion.Application.Services;
 using Facturacion.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -58,5 +59,16 @@ public class ClientesController : ControllerBase
     {
         await _service.DesactivarAsync(id);
         return NoContent();
+    }
+
+    [HttpGet("clientes-nuevos-mes")]
+    public async Task<ActionResult<List<ClienteDto>>> GetClientesNuevosMes()
+        => Ok(await _service.GetClientesNuevosMesAsync());
+
+    [HttpGet("recientes/{top}")]
+    public async Task<ActionResult<List<ClienteDto>>> GetClientesRecientes(int top)
+    {
+        var clientes = await _service.GetClientesRecientesAsync(top);
+        return Ok(clientes);
     }
 }
