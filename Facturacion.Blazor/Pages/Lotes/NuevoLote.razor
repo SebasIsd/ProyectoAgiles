@@ -1,0 +1,202 @@
+@page "/lotes/nuevo"
+@using Facturacion.Blazor.Services
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager Nav
+@inject LoteState LoteState
+
+<PageTitle>Nuevo Lote</PageTitle>
+
+<h3 class="mb-3">Nuevo Lote de Producto</h3>
+
+<EditForm Model="@modelo" OnValidSubmit="@Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="card mb-3">
+        <div class="card-header">Datos del producto y lote</div>
+        <div class="card-body">
+
+            <!-- PRODUCTO Y FECHAS -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Producto</label>
+                    <InputSelect class="form-select" @bind-Value="modelo.ProductoId">
+                        <option value="0">-- Seleccione un producto --</option>
+                        @foreach (var p in productos)
+                        {
+                            <option value="@p.Id">@p.Codigo - @p.Nombre</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => modelo.ProductoId)" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Fecha de compra</label>
+                    <InputDate class="form-control"
+                               DateFormat="dd/MM/yyyy"
+                               @bind-Value="modelo.FechaCompra" />
+                    <ValidationMessage For="@(() => modelo.FechaCompra)" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Fecha de expiración</label>
+                    <InputDate class="form-control"
+                               DateFormat="dd/MM/yyyy"
+                               @bind-Value="modelo.FechaExpiracion" />
+                    <ValidationMessage For="@(() => modelo.FechaExpiracion)" />
+                </div>
+            </div>
+
+            <!-- COSTOS Y CANTIDADES -->
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">Precio costo</label>
+                    <InputNumber class="form-control" @bind-Value="modelo.PrecioCosto" />
+                    <ValidationMessage For="@(() => modelo.PrecioCosto)" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">PVP</label>
+                    <InputNumber class="form-control" @bind-Value="modelo.PVP" />
+                    <ValidationMessage For="@(() => modelo.PVP)" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Cantidad inicial</label>
+                    <InputNumber class="form-control" @bind-Value="modelo.CantidadInicial" />
+                    <ValidationMessage For="@(() => modelo.CantidadInicial)" />
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="modelo.ForzarActualizacionPVP" />
+                        <label class="form-check-label">
+                            Forzar actualización de PVP
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IMPORTACIÓN -->
+            <div class="row g-3 mt-3">
+                <div class="col-md-3 d-flex align-items-center">
+                    <div class="form-check">
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="modelo.EsImportado" />
+                        <label class="form-check-label">
+                            Lote importado
+                        </label>
+                    </div>
+                </div>
+
+                @if (modelo.EsImportado)
+                {
+                    <div class="col-md-4 d-flex align-items-center">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input"
+                                           @bind-Value="modelo.EsImportacion4x4" />
+                            <label class="form-check-label">
+                                Importación 4x4 (≤ 4kg, ≤ $400)
+                            </label>
+                        </div>
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-secondary" @onclick="Cancelar">
+            Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">
+            Guardar lote
+        </button>
+    </div>
+</EditForm>
+
+@code {
+    private CrearLoteViewModel modelo = new();
+
+    // Lista temporal de productos
+    private List<ProductoCombo> productos = new()
+    {
+        new ProductoCombo { Id = 10, Codigo = "PROD-001", Nombre = "Mouse óptico" },
+        new ProductoCombo { Id = 11, Codigo = "PROD-002", Nombre = "Teclado mecánico" },
+        new ProductoCombo { Id = 12, Codigo = "PROD-003", Nombre = "Monitor 24''" }
+    };
+
+    protected override void OnInitialized()
+    {
+        modelo.FechaCompra = DateTime.Today;
+    }
+
+    private void Guardar()
+    {
+        var prod = productos.FirstOrDefault(p => p.Id == modelo.ProductoId);
+        if (prod is null) return;
+
+        var nuevoLote = new LoteItem
+        {
+            ProductoId = modelo.ProductoId,
+            ProductoCodigo = prod.Codigo,
+            ProductoNombre = prod.Nombre,
+            ProductoCategoria = "General",
+            FechaCompra = modelo.FechaCompra,
+            FechaExpiracion = modelo.FechaExpiracion,
+            PrecioCosto = modelo.PrecioCosto,
+            PVP = modelo.PVP,
+            CantidadInicial = modelo.CantidadInicial,
+            CantidadDisponible = modelo.CantidadInicial,
+
+            // NUEVOS VALORES
+            EsImportado = modelo.EsImportado,
+            EsImportacion4x4 = modelo.EsImportacion4x4
+        };
+
+        LoteState.Add(nuevoLote);
+        Nav.NavigateTo("/lotes");
+    }
+
+    private void Cancelar() => Nav.NavigateTo("/lotes");
+
+    // === ViewModel con los nuevos campos ===
+    private class CrearLoteViewModel
+    {
+        [Required(ErrorMessage = "El producto es obligatorio")]
+        [Range(1, int.MaxValue, ErrorMessage = "Seleccione un producto válido")]
+        public int ProductoId { get; set; }
+
+        [Required(ErrorMessage = "La fecha de compra es obligatoria")]
+        public DateTime FechaCompra { get; set; }
+
+        public DateTime? FechaExpiracion { get; set; }
+
+        [Required(ErrorMessage = "El precio de costo es obligatorio")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "El precio de costo debe ser mayor a 0")]
+        public decimal PrecioCosto { get; set; }
+
+        [Required(ErrorMessage = "El PVP es obligatorio")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "El PVP debe ser mayor a 0")]
+        public decimal PVP { get; set; }
+
+        [Required(ErrorMessage = "La cantidad inicial es obligatoria")]
+        [Range(0, int.MaxValue, ErrorMessage = "La cantidad inicial no puede ser negativa")]
+        public int CantidadInicial { get; set; }
+
+        public bool ForzarActualizacionPVP { get; set; }
+
+        // NUEVOS CAMPOS
+        public bool EsImportado { get; set; }
+        public bool EsImportacion4x4 { get; set; }
+    }
+
+    private class ProductoCombo
+    {
+        public int Id { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+    }
+}
