@@ -5,7 +5,6 @@ using Facturacion.Application.DTOs;
 
 namespace Facturacion.Blazor.Services
 {
-    // ⭐⭐ INTERFAZ QUE FALTABA ⭐⭐
     public interface ILoteApiService
     {
         Task<List<LoteItem>> GetAllAsync();
@@ -29,17 +28,53 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
-                var response = await _http.GetFromJsonAsync<List<LoteDto>>("api/lotes");
-                var lotesMapeados = response?.Select(MapToLoteItem).ToList() 
-                                 ?? new List<LoteItem>();
+                Console.WriteLine("🔍 Llamando a: api/lotes");
                 
-                Console.WriteLine($"⭐ Lotes mapeados: {lotesMapeados.Count}");
+                // 1. Verificar la respuesta HTTP
+                var httpResponse = await _http.GetAsync("api/lotes");
+                Console.WriteLine($"🔍 Status Code: {httpResponse.StatusCode}");
+                
+                if (!httpResponse.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"❌ ERROR HTTP: {httpResponse.StatusCode}");
+                    var errorContent = await httpResponse.Content.ReadAsStringAsync();
+                    Console.WriteLine($"❌ Error content: {errorContent}");
+                    return new List<LoteItem>();
+                }
+
+                // 2. Deserializar
+                var response = await httpResponse.Content.ReadFromJsonAsync<List<LoteDto>>();
+                Console.WriteLine($"🔍 Lotes DTO recibidos: {response?.Count ?? 0}");
+
+                // 3. Mostrar detalles de los primeros lotes
+                if (response != null && response.Any())
+                {
+                    Console.WriteLine("🔍 Detalles de los lotes:");
+                    foreach (var lote in response.Take(3))
+                    {
+                        Console.WriteLine($"  📦 Lote {lote.Id}: '{lote.Lote}'");
+                        Console.WriteLine($"     Producto: {lote.ProductoNombre} (ID: {lote.ProductoId})");
+                        Console.WriteLine($"     Precio: C{lote.PrecioCompra} -> V{lote.PrecioVenta}");
+                        Console.WriteLine($"     Stock: {lote.Stock}, Fecha: {lote.FechaIngreso:dd/MM/yyyy}");
+                        Console.WriteLine($"     Activo: {lote.Activo}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("⚠️  NO HAY LOTES en la respuesta del backend");
+                    return new List<LoteItem>(); // ⭐ SOLO lista vacía
+                }
+
+                // 4. Mapear
+                var lotesMapeados = response.Select(MapToLoteItem).ToList();
+                Console.WriteLine($"✅ Lotes mapeados: {lotesMapeados.Count}");
+                
                 return lotesMapeados;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en GetAllAsync: {ex.Message}");
-                return new List<LoteItem>();
+                Console.WriteLine($"💥 ERROR en GetAllAsync: {ex.Message}");
+                return new List<LoteItem>(); // ⭐ SOLO lista vacía, NO datos de prueba
             }
         }
 
@@ -47,12 +82,21 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
+                Console.WriteLine($"🔍 GetByIdAsync llamado para ID: {id}");
                 var response = await _http.GetFromJsonAsync<LoteDto>($"api/lotes/{id}");
-                return response != null ? MapToLoteItem(response) : null;
+                
+                if (response == null)
+                {
+                    Console.WriteLine($"⚠️  No se encontró lote con ID: {id}");
+                    return null;
+                }
+                
+                Console.WriteLine($"✅ Lote encontrado: {response.Lote}");
+                return MapToLoteItem(response);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en GetByIdAsync: {ex.Message}");
+                Console.WriteLine($"💥 ERROR en GetByIdAsync: {ex.Message}");
                 return null;
             }
         }
@@ -61,6 +105,8 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
+                Console.WriteLine($"🔍 CreateAsync llamado para lote: {lote.Lote}");
+                
                 var createDto = new CreateLoteDto
                 {
                     ProductoId = lote.ProductoId,
@@ -74,11 +120,20 @@ namespace Facturacion.Blazor.Services
                 };
 
                 var response = await _http.PostAsJsonAsync("api/lotes", createDto);
-                return response.IsSuccessStatusCode;
+                var success = response.IsSuccessStatusCode;
+                
+                Console.WriteLine($"📝 CreateAsync resultado: {success}");
+                if (!success)
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"❌ Error del servidor: {error}");
+                }
+                
+                return success;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en CreateAsync: {ex.Message}");
+                Console.WriteLine($"💥 ERROR en CreateAsync: {ex.Message}");
                 return false;
             }
         }
@@ -87,6 +142,8 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
+                Console.WriteLine($"🔍 UpdateAsync llamado para lote ID: {lote.Id}");
+                
                 var updateDto = new UpdateLoteDto
                 {
                     Id = lote.Id,
@@ -100,11 +157,14 @@ namespace Facturacion.Blazor.Services
                 };
 
                 var response = await _http.PutAsJsonAsync($"api/lotes/{lote.Id}", updateDto);
-                return response.IsSuccessStatusCode;
+                var success = response.IsSuccessStatusCode;
+                
+                Console.WriteLine($"📝 UpdateAsync resultado: {success}");
+                return success;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en UpdateAsync: {ex.Message}");
+                Console.WriteLine($"💥 ERROR en UpdateAsync: {ex.Message}");
                 return false;
             }
         }
@@ -113,12 +173,16 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
+                Console.WriteLine($"🔍 DeleteAsync llamado para ID: {id}");
                 var response = await _http.DeleteAsync($"api/lotes/{id}");
-                return response.IsSuccessStatusCode;
+                var success = response.IsSuccessStatusCode;
+                
+                Console.WriteLine($"📝 DeleteAsync resultado: {success}");
+                return success;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en DeleteAsync: {ex.Message}");
+                Console.WriteLine($"💥 ERROR en DeleteAsync: {ex.Message}");
                 return false;
             }
         }
@@ -127,13 +191,16 @@ namespace Facturacion.Blazor.Services
         {
             try
             {
+                Console.WriteLine($"🔍 SearchAsync llamado con: '{searchTerm}'");
                 var url = $"api/lotes?search={Uri.EscapeDataString(searchTerm)}";
                 var response = await _http.GetFromJsonAsync<List<LoteDto>>(url);
+                
+                Console.WriteLine($"🔍 SearchAsync resultados: {response?.Count ?? 0}");
                 return response?.Select(MapToLoteItem).ToList() ?? new List<LoteItem>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⭐ ERROR en SearchAsync: {ex.Message}");
+                Console.WriteLine($"💥 ERROR en SearchAsync: {ex.Message}");
                 return new List<LoteItem>();
             }
         }
