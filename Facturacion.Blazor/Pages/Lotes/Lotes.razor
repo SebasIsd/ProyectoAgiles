@@ -1,0 +1,133 @@
+﻿@page "/lotes/listar"
+@using Facturacion.Blazor.Services
+@inject NavigationManager Nav
+@inject LoteState LoteState
+
+<PageTitle>Lotes</PageTitle>
+
+<h3 class="mb-3">Lotes de Productos</h3>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <button class="btn btn-primary btn-sm" @onclick="IrANuevoLote">
+        <i class="bi bi-box-seam"></i> Nuevo Lote
+    </button>
+
+    <div class="ms-auto"></div>
+
+    <!-- Buscador -->
+    <div class="input-group" style="max-width:320px">
+        <span class="input-group-text">
+            <i class="bi bi-search"></i>
+        </span>
+        <input class="form-control"
+               placeholder="Buscar por producto o código"
+               @bind="SearchText"
+               @bind:event="oninput" />
+    </div>
+</div>
+
+<table class="table table-striped table-hover align-middle">
+    <thead>
+        <tr>
+            <th>ID Lote</th>
+            <th>Código</th>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Fecha compra</th>
+            <th>F. expiración</th>
+            <th>Precio costo</th>
+            <th>PVP</th>
+            <th>Inicial</th>
+            <th>Disponible</th>
+            <th>Estado</th>
+            <th style="width: 120px;">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (!lotesFiltrados.Any())
+        {
+            <tr>
+                <td colspan="12" class="text-center text-muted">
+                    No se encontraron lotes para el criterio ingresado.
+                </td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var lote in lotesFiltrados)
+            {
+                <tr>
+                    <td>@lote.LoteId</td>
+                    <td>@lote.ProductoCodigo</td>
+                    <td>@lote.ProductoNombre</td>
+                    <td>@lote.ProductoCategoria</td>
+                    <td>@lote.FechaCompra.ToString("dd/MM/yyyy")</td>
+                    <td>@(lote.FechaExpiracion?.ToString("dd/MM/yyyy") ?? "-")</td>
+                    <td>$ @lote.PrecioCosto.ToString("0.00")</td>
+                    <td>$ @lote.PVP.ToString("0.00")</td>
+                    <td>@lote.CantidadInicial</td>
+                    <td>@lote.CantidadDisponible</td>
+                    <td>@lote.Estado</td>
+                    <td>
+                        <button class="btn btn-outline-warning btn-sm"
+                                @onclick="@(() => IrAEditarLote(lote.LoteId))">
+                            Editar
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@code {
+    private IReadOnlyList<LoteItem> lotes = Array.Empty<LoteItem>();
+    private List<LoteItem> lotesFiltrados = new();
+
+    // texto del buscador
+    private string _searchText = string.Empty;
+    private string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            _searchText = value;
+            AplicarFiltro();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        lotes = LoteState.GetAll();
+        AplicarFiltro();
+    }
+
+    private void AplicarFiltro()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            lotesFiltrados = lotes.ToList();
+            return;
+        }
+
+        var term = SearchText.Trim().ToLower();
+
+        lotesFiltrados = lotes
+            .Where(l =>
+                (!string.IsNullOrEmpty(l.ProductoNombre) &&
+                 l.ProductoNombre.ToLower().Contains(term)) ||
+                (!string.IsNullOrEmpty(l.ProductoCodigo) &&
+                 l.ProductoCodigo.ToLower().Contains(term)))
+            .ToList();
+    }
+
+    private void IrANuevoLote()
+    {
+        Nav.NavigateTo("/lotes/nuevo");
+    }
+
+    private void IrAEditarLote(int loteId)
+    {
+        Nav.NavigateTo($"/lotes/editar/{loteId}");
+    }
+}

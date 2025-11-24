@@ -1,23 +1,33 @@
-﻿<!-- Clientes.razor (solo lista + botones) -->
-@page "/clientes/lista"
+﻿@page "/clientes/lista"
 @attribute [Authorize]
 @using Facturacion.Application.DTOs
 @using Facturacion.Blazor.Services
 
-<h3>Clientes</h3>
+<PageTitle>Clientes</PageTitle>
 
 <div class="d-flex gap-2 mb-3">
     <a href="/clientes/nuevo" class="btn btn-primary">Nuevo Cliente</a>
     <button class="btn btn-outline-secondary ms-2" @onclick="Cargar">Refrescar</button>
+    <div class="input-group" style="max-width:320px">
+        <button class="btn btn-outline-secondary" type="button" @onclick="AplicarFiltro">
+            <i class="bi bi-search"></i>
+        </button>
+        <input class="form-control"
+               placeholder="Buscar por cliente o # de Identificacion"
+               @bind="SearchText"
+               @bind:event="oninput" />
+    </div>
 </div>
 
-@if (clientes == null)
+
+@* 💡 Usamos clientesFiltrados para mostrar los datos *@
+@if (clientesFiltrados == null)
 {
     <p>Cargando...</p>
 }
-else if (!clientes.Any())
+else if (!clientesFiltrados.Any())
 {
-    <p>No hay clientes registrados.</p>
+    <p>No hay clientes registrados que coincidan con la búsqueda.</p>
 }
 else
 {
@@ -34,7 +44,8 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var c in clientes)
+            @* 💡 Iteramos sobre la lista filtrada *@
+            @foreach (var c in clientesFiltrados)
             {
                 <tr>
                     <td>@c.TipoIdentificacion</td>
@@ -55,18 +66,24 @@ else
 
 @code {
     [Inject] ClienteApi Api { get; set; } = default!;
-    private List<ClienteDto>? clientes;
+    private List<ClienteDto>? clientes; // Lista original, no se modifica
+    private List<ClienteDto>? clientesFiltrados; // Lista que se muestra en la tabla
 
     protected override async Task OnInitializedAsync()
     {
-        clientes = await Api.ListarAsync();
-        Console.WriteLine($"Clientes cargados: {clientes?.Count ?? 0}");
-        StateHasChanged();
+        await Cargar();
     }
 
     private async Task Cargar()
     {
+        // 1. Cargar datos de la API
         clientes = await Api.ListarAsync();
+        Console.WriteLine($"Clientes cargados: {clientes?.Count ?? 0}");
+
+        // 2. Aplicar el filtro (o mostrar todos si no hay texto de búsqueda)
+        AplicarFiltro();
+
+        // 3. Notificar a Blazor que la UI debe actualizarse
         StateHasChanged();
     }
 
@@ -74,5 +91,43 @@ else
     {
         await Api.DesactivarAsync(id);
         await Cargar();
+    }
+
+    private string _searchText = string.Empty;
+    private string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            _searchText = value;
+            // Al cambiar el texto, aplicamos el filtro inmediatamente.
+            AplicarFiltro();
+        }
+    }
+
+    private void AplicarFiltro()
+    {
+        // Si la lista original 'clientes' aún no está cargada, salimos.
+        if (clientes == null)
+        {
+            clientesFiltrados = null; // Para seguir mostrando "Cargando..."
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            // Si el texto de búsqueda está vacío, mostramos todos los clientes.
+            clientesFiltrados = clientes.ToList();
+        }
+        else
+        {
+            // Si hay texto, filtramos.
+            var term = SearchText.Trim().ToLower();
+            clientesFiltrados = clientes
+                .Where(c =>
+                    c.Nombre!.ToLower().Contains(term) || // Usamos '!' si sabes que no será nulo
+                    c.Identificacion!.ToLower().Contains(term))
+                .ToList();
+        }
     }
 }
