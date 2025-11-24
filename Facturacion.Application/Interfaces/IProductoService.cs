@@ -16,6 +16,8 @@ public interface IProductoService
     Task ActualizarProductoAsync(int id, ActualizarProductoDto dto);
     Task DesactivarProductoAsync(int id);
     Task CrearLoteAsync(CrearLoteDto dto, int userId);
-    // Agrega este método a la interfaz:
     Task<List<CategoriaDto>> GetCategoriasAsync();
+    
+    // NUEVO MÉTODO PARA COMBO
+    Task<List<ProductoComboDto>> GetComboProductosAsync();
 }
