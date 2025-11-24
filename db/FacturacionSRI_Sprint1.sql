@@ -127,6 +127,21 @@ CREATE TABLE [dbo].[ProductoLotes] (
     CONSTRAINT UQ_ProductoLotes_Lote UNIQUE (ProductoId, Lote)
 );
 GO
+-- =============================================
+-- TABLA: Cobros
+-- =============================================
+CREATE TABLE Cobros (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    FacturaId INT NOT NULL,
+    Monto DECIMAL(18,4) NOT NULL CHECK (Monto > 0),
+    MetodoPago NVARCHAR(50) NOT NULL,
+    Fecha DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CreatedBy INT NOT NULL,
+
+    CONSTRAINT FK_Cobros_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id),
+    CONSTRAINT FK_Cobros_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+);
+GO
 
 -- =============================================
 -- TRIGGERS UpdatedAt

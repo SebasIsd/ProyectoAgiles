@@ -34,6 +34,8 @@ builder.Services.AddScoped<AuthService>();     // Probablemente también necesit
 builder.Services.AddScoped<FacturaApiService>();
 builder.Services.AddSweetAlert2();
 builder.Services.AddScoped<AlertService>();
+builder.Services.AddScoped<CobroService>();
+
 
 // 4. Configuración del CLIENTE NOMBRADO "API"
 // Este registro es usado por IHttpClientFactory en AuthService.cs.

@@ -1,7 +1,10 @@
 @page "/reportes/cobros"
+@using Facturacion.Application.DTOs
 @using Facturacion.Blazor.Services
 @using System.Linq
 @inject FacturaState FacturaState
+@inject CobroService CobroService
+
 
 <PageTitle>Reporte de Cobros | Facturación Electrónica</PageTitle>
 
@@ -64,16 +67,23 @@
     private List<ClienteDeudorViewModel> clientesDeudores = new();
     private decimal TotalGeneralAdeudado;
 
-    protected override void OnInitialized()
+    // para cuando quieras mostrar los cobros
+    private List<CobroDto> cobros = new();
+
+    protected override async Task OnInitializedAsync()
     {
+        // 1️⃣ Facturas locales almacenadas en el estado
         var facturas = FacturaState.GetAll();
 
-        // Solo facturas NO pagadas (Pendiente, Vencida, etc.)
+        // 2️⃣ Consumimos la API de Cobros
+        cobros = await CobroService.GetAll();
+
+        // 3️⃣ Procesamos facturas NO pagadas
         var pendientes = facturas
             .Where(f => !string.Equals(f.Estado, "Pagada", StringComparison.OrdinalIgnoreCase));
 
         clientesDeudores = pendientes
-            .GroupBy(f => f.Cliente) // asumo que la propiedad se llama Cliente
+            .GroupBy(f => f.Cliente)
             .Where(g => !string.IsNullOrWhiteSpace(g.Key))
             .Select(g =>
             {
@@ -100,6 +110,6 @@
         public int NumeroFacturasPendientes { get; set; }
         public decimal TotalAdeudado { get; set; }
         public string UltimaFacturaNumero { get; set; } = string.Empty;
-        public DateTime FechaUltimaFactura { get; set; }
-    }
+        public DateTime FechaUltimaFactura { get; set; }
+    }
 }
