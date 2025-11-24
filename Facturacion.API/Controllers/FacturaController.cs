@@ -48,4 +48,20 @@ public class FacturasController : ControllerBase
         await _facturaService.EliminarFacturaAsync(id);
         return NoContent();
     }
+
+    [HttpGet("mes-actual")]
+    public async Task<IActionResult> GetFacturasMesActual()
+            => Ok(await _facturaService.GetFacturasMesActualAsync()); // Devuelve List<FacturaDto>
+
+    [HttpGet("pendientes-count")]
+    public async Task<IActionResult> GetFacturasPendientes()
+        => Ok(await _facturaService.GetFacturasPendientesAsync()); // Devuelve int
+
+    [HttpGet("ventas-ultimos-meses/{meses:int}")]
+    public async Task<IActionResult> GetVentasUltimosMeses(int meses)
+        => Ok(await _facturaService.GetVentasUltimosMesesAsync(meses)); // Devuelve List<decimal>
+
+    [HttpGet("ultimas/{top:int}")]
+    public async Task<IActionResult> GetUltimasFacturas(int top)
+        => Ok(await _facturaService.GetUltimasFacturasAsync(top));
 }

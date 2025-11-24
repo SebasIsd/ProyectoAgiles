@@ -15,4 +15,9 @@ public interface IFacturaService
     Task<FacturaDto> CrearFacturaAsync(CrearFacturaDto dto);
     Task ActualizarFacturaAsync(int id, ActualizarFacturaDto dto);
     Task EliminarFacturaAsync(int id);
+
+    Task<List<FacturaDto>> GetFacturasMesActualAsync(); //
+    Task<int> GetFacturasPendientesAsync(); //
+    Task<List<decimal>> GetVentasUltimosMesesAsync(int meses); //
+    Task<List<FacturaDto>> GetUltimasFacturasAsync(int top); //
 }

@@ -3,10 +3,21 @@
 @attribute [Authorize]
 @using Facturacion.Application.DTOs
 @using Facturacion.Blazor.Services
+@using static Facturacion.Blazor.Services.AlertService
 @inject ClienteApi Api
+@inject AlertService Alert
 @inject NavigationManager Nav
 
 <PageTitle>@(Id.HasValue ? "Editar Cliente" : "Nuevo Cliente")</PageTitle>
+
+<!-- Mostrar alertas aquí -->
+@if (Alert.HasAlert)
+{
+    <div class="alert @(Alert.Tipo == AlertType.Success ? "alert-success" : Alert.Tipo == AlertType.Error ? "alert-danger" : "alert-warning") alert-dismissible fade show" role="alert">
+        @Alert.Mensaje
+        <button type="button" class="btn-close" @onclick="Alert.Limpiar"></button>
+    </div>
+}
 
 <h3 class="mb-4">@(Id.HasValue ? "Editar" : "Nuevo") Cliente</h3>
 
@@ -28,6 +39,7 @@
             <label class="form-label fw-bold">Identificación <span class="text-danger">*</span></label>
             <InputText @bind-Value="modelo.Identificacion" class="form-control" disabled="@esEdicion" />
             <small class="text-muted d-block">@MensajeAyuda</small>
+            <ValidationMessage For="@(() => modelo.Identificacion)" />
         </div>
 
         <div class="col-md-5">
@@ -64,7 +76,6 @@
 @code {
     [Parameter] public int? Id { get; set; }
 
-    // Ahora SÍ funciona el binding porque tiene setter normal
     private CrearClienteDto modelo = new()
     {
         TipoIdentificacion = "CEDULA",
@@ -86,18 +97,29 @@
     {
         if (esEdicion)
         {
-            var cliente = await Api.PorIdAsync(Id.Value);
-            if (cliente is not null)
+            try
             {
-                modelo = new CrearClienteDto
+                var cliente = await Api.PorIdAsync(Id.Value);
+                if (cliente is not null)
                 {
-                    Nombre = cliente.Nombre,
-                    TipoIdentificacion = cliente.TipoIdentificacion,
-                    Identificacion = cliente.Identificacion,
-                    Email = cliente.Email,
-                    Telefono = cliente.Telefono,
-                    Direccion = cliente.Direccion
-                };
+                    modelo = new CrearClienteDto
+                    {
+                        Nombre = cliente.Nombre,
+                        TipoIdentificacion = cliente.TipoIdentificacion,
+                        Identificacion = cliente.Identificacion,
+                        Email = cliente.Email,
+                        Telefono = cliente.Telefono,
+                        Direccion = cliente.Direccion
+                    };
+                }
+                else
+                {
+                    Alert.Mostrar("Cliente no encontrado", AlertType.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Alert.Mostrar($"Error al cargar cliente: {ex.Message}", AlertType.Error);
             }
         }
     }
@@ -116,18 +138,26 @@
                     Direccion = modelo.Direccion
                 };
                 await Api.ActualizarAsync(Id.Value, dto);
+                Alert.Mostrar("Cliente actualizado exitosamente", AlertType.Success);
             }
             else
             {
                 await Api.CrearAsync(modelo);
+                Alert.Mostrar("Cliente creado exitosamente", AlertType.Success);
             }
 
+            await Task.Delay(1000);
             Nav.NavigateTo("/clientes/lista");
+        }
+        catch (HttpRequestException httpEx)
+        {
+            // Errores HTTP (400, 404, 500, etc.)
+            Alert.Mostrar($"Error de red: {httpEx.Message}", AlertType.Error);
         }
         catch (Exception ex)
         {
-            // Aquí puedes usar un toast o alert
-            Console.WriteLine("Error: " + ex.Message);
+            // Cualquier otro error (incluyendo ArgumentException del servidor)
+            Alert.Mostrar($"Error inesperado: {ex.Message}", AlertType.Error);
         }
     }
 }

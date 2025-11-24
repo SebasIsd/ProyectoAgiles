@@ -14,11 +14,27 @@ public class ProductoApi
     public Task<ProductoDetalleDto?> GetDetalleAsync(int id) =>
         _http.GetFromJsonAsync<ProductoDetalleDto>($"api/productos/{id}");
 
-    public Task Crear(CrearProductoDto dto) =>
-        _http.PostAsJsonAsync("api/productos", dto).ContinueWith(_ => { });
+    public async Task Crear(CrearProductoDto dto)
+{
+    var resp = await _http.PostAsJsonAsync("api/productos", dto);
 
-    public Task Actualizar(int id, ActualizarProductoDto dto) =>
-        _http.PutAsJsonAsync($"api/productos/{id}", dto).ContinueWith(_ => { });
+    if (!resp.IsSuccessStatusCode)
+    {
+        var error = await resp.Content.ReadAsStringAsync();
+        throw new Exception(error);
+    }
+}
+
+public async Task Actualizar(int id, ActualizarProductoDto dto)
+{
+    var resp = await _http.PutAsJsonAsync($"api/productos/{id}", dto);
+
+    if (!resp.IsSuccessStatusCode)
+    {
+        var error = await resp.Content.ReadAsStringAsync();
+        throw new Exception(error);
+    }
+}
 
     public Task CrearLote(CrearLoteDto dto) =>
         _http.PostAsJsonAsync("api/productos/lotes", dto).ContinueWith(_ => { });
@@ -46,4 +62,11 @@ public class ProductoApi
             return new();
         }
     }
+    public async Task<int> GetProductosVendidosMesAsync()
+    {
+        // Asume que el API tiene un endpoint /api/productos/vendidos-mes que devuelve un int
+        // Si no tienes este endpoint, puedes devolver 0 o implementarlo.
+        return await _http.GetFromJsonAsync<int>("api/productos/vendidos-mes");
+    }
+
 }

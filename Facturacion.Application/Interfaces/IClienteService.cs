@@ -16,4 +16,6 @@ public interface IClienteService
     Task<int> CrearAsync(CrearClienteDto dto, int userId);
     Task ActualizarAsync(int id, ActualizarClienteDto dto, int userId);
     Task DesactivarAsync(int id);
+    Task<List<ClienteDto>> GetClientesNuevosMesAsync();
+    Task<List<ClienteDto>> GetClientesRecientesAsync(int top);
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,19 +10,31 @@ namespace Facturacion.Application.DTOs;
 
 public class CrearProductoDto
 {
+    [Required(ErrorMessage = "Un nombre es obligatorio")]
     public string Nombre { get; set; } = null!;
+
+    [Required(ErrorMessage = "Un codigo es obligatorio")]
     public string? Codigo { get; set; }
+
+    [Required(ErrorMessage = "Un codigo de barra es obligatorio")]
     public string? CodigoBarra { get; set; }
+
+    [Required(ErrorMessage = "Una descripcion es obligatoria")]
     public string? Descripcion { get; set; }
+
     public string? Modelo { get; set; }
     public int? MarcaId { get; set; }        // ← NUEVO
     public int? CategoriaId { get; set; }    // ← NUEVO
 }
 public class ActualizarProductoDto
 {
+    [Required(ErrorMessage = "Un nombre es obligatorio")]
     public string Nombre { get; set; } = null!;
+    [Required(ErrorMessage = "Un codigo es obligatorio")]
     public string? Codigo { get; set; }
+    [Required(ErrorMessage = "Un codigo de barra es obligatorio")]
     public string? CodigoBarra { get; set; }
+    [Required(ErrorMessage = "Una descripcion es obligatoria")]
     public string? Descripcion { get; set; }
     public string? Modelo { get; set; }
     public int? MarcaId { get; set; }        // ← NUEVO

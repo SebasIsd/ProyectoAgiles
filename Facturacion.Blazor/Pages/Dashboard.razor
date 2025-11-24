@@ -1,153 +1,285 @@
 ﻿@page "/dashboard"
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@using Facturacion.Application.DTOs
+@using Microsoft.JSInterop
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject FacturaApiService FacturaService
+@inject NavigationManager Nav
+@inject ClienteApi ClienteService
+@inject IJSRuntime JS
 @attribute [Authorize]
 
 <PageTitle>Dashboard | Facturación Electrónica</PageTitle>
 
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3 text-muted">Cargando dashboard...</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1">Dashboard de Ventas</h2>
+                <p class="text-muted mb-0">Resumen ejecutivo y métricas clave de tu negocio.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" @onclick="RefreshData">
+                    <i class="bi bi-arrow-clockwise"></i> Actualizar
+                </button>
+                <button class="btn btn-primary" @onclick="NavigateToFacturas">
+                    <i class="bi bi-receipt"></i> Ver Facturas
+                </button>
+            </div>
+        </div>
+
+        <!-- Métricas Principales -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="card shadow-sm border-start border-success border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <p class="text-muted mb-1">Ingresos del Mes</p>
+                                <h4 class="mb-0 fw-bold text-success">$ @ingresosMes.ToString("N2")</h4>
+                                <small class="text-success"><i class="bi bi-arrow-up"></i> 12% vs mes anterior</small>
+                            </div>
+                            <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <i class="bi bi-currency-dollar text-success fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="card shadow-sm border-start border-warning border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <p class="text-muted mb-1">Facturas Pendientes</p>
+                                <h4 class="mb-0 fw-bold text-warning">@facturasPendientes</h4>
+                                <small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Requieren atención</small>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <i class="bi bi-receipt text-warning fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="card shadow-sm border-start border-info border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <p class="text-muted mb-1">Clientes Nuevos (Mes)</p>
+                                <h4 class="mb-0 fw-bold text-info">@clientesNuevos</h4>
+                                <small class="text-info"><i class="bi bi-arrow-up"></i> +2 vs mes anterior</small>
+                            </div>
+                            <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <i class="bi bi-person-plus text-info fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+                <div class="card shadow-sm border-start border-primary border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <p class="text-muted mb-1">Facturas del Mes</p>
+                                <h4 class="mb-0 fw-bold text-primary">@facturasMes.Count</h4>
+                                <small class="text-primary"><i class="bi bi-graph-up"></i> Actividad en curso</small>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <i class="bi bi-bar-chart text-primary fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos y Tablas -->
+        <div class="row g-4">
+            <!-- Gráfico de Ventas -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-graph-up text-primary"></i> Ventas por Mes</h5>
+                        <div class="dropdown">
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="ventasChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Últimas Facturas -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-receipt text-primary"></i> Últimas @ultimasFacturas.Count Facturas</h5>
+                        <button class="btn btn-outline-primary btn-sm" @onclick="NavigateToFacturas">Ver todas</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th># Factura</th>
+                                        <th>Total</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var factura in ultimasFacturas.Take(5))
+                                    {
+                                        <tr>
+                                            <td><small class="text-muted">@factura.Numero</small></td>
+                                            <td><strong>$ @factura.Total.ToString("N2")</strong></td>
+                                            <td>
+                                                <span class="badge bg-@(factura.Estado == "Emitida" ? "success" : "warning")">@factura.Estado</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (!ultimasFacturas.Any())
+                        {
+                            <div class="text-center py-5">
+                                <i class="bi bi-receipt text-muted fs-1"></i>
+                                <p class="text-muted mt-2">No hay facturas recientes</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clientes Recientes -->
+        <div class="row g-4 mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-people text-info"></i> Clientes Recientes</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            @if (clientesRecientes.Any())
+                            {
+                                @foreach (var cliente in clientesRecientes.Take(5))
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0">@cliente.Nombre</h6>
+                                            <small class="text-muted">@cliente.Email</small>
+                                        </div>
+                                        <span class="badge bg-info rounded-pill">Nuevo</span>
+                                    </li>
+                                }
+                            }
+                            else
+                            {
+                                <li class="list-group-item text-center text-muted">
+                                    <i class="bi bi-people-x"></i> No hay clientes nuevos
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private string? NombreUsuario = "Administrador";
+    private bool isLoading = true;
+    private string NombreUsuario = "Usuario";
+
+    // Métricas
+    private decimal ingresosMes = 0;
+    private int facturasPendientes = 0;
+    private int clientesNuevos = 0;
+    private List<FacturaDto> facturasMes = new(); // Agregado para métrica adicional
+
+    // Listas
+    private List<FacturaDto> ultimasFacturas = new();
+    private List<ClienteDto> clientesRecientes = new();
+    private List<decimal> ventasMensuales = new();
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadUserName();
+        await LoadDashboardData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && firstRender)
+        {
+            await JS.InvokeVoidAsync("inicializarGraficoVentas", "ventasChart", ventasMensuales);
+        }
+    }
+
+    private async Task LoadUserName()
+    {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-
-        // Asumiendo que el nombre completo está en el claim "Nombre" o "Name"
-        NombreUsuario = user.FindFirst(ClaimTypes.Name) ?.Value 
-                         ?? user.FindFirst("Nombre")?.Value 
-                         ?? "Usuario";
+        NombreUsuario = user.FindFirst(ClaimTypes.Name)?.Value
+            ?? user.FindFirst("Nombre")?.Value
+            ?? user.FindFirst("name")?.Value
+            ?? "Usuario";
     }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            isLoading = true;
+
+            // 1. Métricas principales
+            facturasMes = await FacturaService.GetFacturasMesActualAsync();
+            ingresosMes = facturasMes.Sum(f => f.Total);
+            facturasPendientes = await FacturaService.GetFacturasPendientesAsync();
+            var clientesNuevosList = await ClienteService.GetClientesNuevosMesAsync();
+            clientesNuevos = clientesNuevosList.Count;
+
+            // 2. Listas
+            ultimasFacturas = await FacturaService.GetUltimasFacturasAsync(5);
+            clientesRecientes = await ClienteService.GetClientesRecientesAsync(5); // Asegúrate de tener este método
+
+            // 3. Datos para gráfico
+            ventasMensuales = await FacturaService.GetVentasUltimosMesesAsync(6);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando dashboard: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+    }
+
+    protected void NavigateToFacturas() => Nav.NavigateTo("/facturas");
 }
-
-<h3 class="mb-2">Bienvenido, @NombreUsuario</h3>
-<p class="text-muted mb-4">Resumen ejecutivo y métricas clave de tu negocio.</p>
-
-<div class="row g-4 mb-5">
-
-    <div class="col-md-6 col-lg-3">
-        <div class="card shadow-sm border-start border-success border-5 h-100">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-success text-uppercase mb-1">
-                            Ingresos del Mes
-                        </div>
-                        <div class="h5 mb-0 fw-bold text-gray-800">$ 15,350.50</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="bi bi-currency-dollar fa-2x text-success fs-3"></i>
-                    </div>
-                </div>
-            </div>
-            <a class="card-footer text-success small bg-light" href="/facturas">
-                Ver facturación <i class="bi bi-arrow-right-circle-fill"></i>
-            </a>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3">
-        <div class="card shadow-sm border-start border-success border-5 h-100">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-success text-uppercase mb-1">
-                            Ingresos del Mes
-                        </div>
-                        <div class="h5 mb-0 fw-bold text-gray-800">$2,450.00</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="bi bi-currency-dollar fa-2x text-gray-300" style="font-size: 2rem;"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3">
-        <div class="card shadow-sm border-start border-warning border-5 h-100">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-warning text-uppercase mb-1">
-                            Cuentas por Cobrar
-                        </div>
-                        <div class="h5 mb-0 fw-bold text-gray-800">$ 4,500.00</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="bi bi-cash-stack fa-2x text-warning fs-3"></i>
-                    </div>
-                </div>
-            </div>
-            <a class="card-footer text-warning small bg-light" href="/reportes">
-                Ver reporte de cobros <i class="bi bi-arrow-right-circle-fill"></i>
-            </a>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-3">
-        <div class="card shadow-sm border-start border-danger border-5 h-100">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-danger text-uppercase mb-1">
-                            Productos en Crítico
-                        </div>
-                        <div class="h5 mb-0 fw-bold text-gray-800">8 Items</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="bi bi-exclamation-triangle-fill fa-2x text-danger fs-3"></i>
-                    </div>
-                </div>
-            </div>
-            <a class="card-footer text-danger small bg-light" href="/productos">
-                Gestionar inventario <i class="bi bi-arrow-right-circle-fill"></i>
-            </a>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold d-flex align-items-center">
-                <i class="bi bi-graph-up me-2"></i> Evolución de Ventas (Últimos 6 meses)
-                <span class="ms-auto badge text-bg-info">Datos Simulados</span>
-            </div>
-            <div class="card-body">
-                <div style="height:250px; background-color: #f0f3f6; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                    <span class="text-muted">Integración de Gráficos (ej. Chart.js)</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">
-                <i class="bi bi-clock-history me-2"></i> Últimas 5 Facturas Emitidas
-            </div>
-            <div class="card-body">
-                <table class="table table-hover table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th># Factura</th>
-                            <th>Cliente</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>001-001-000010</td><td>Carlos Pérez</td><td>$150.00</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
-                        <tr><td>001-001-000009</td><td>María Solis</td><td>$85.50</td><td><span class="badge text-bg-warning">Pendiente</span></td></tr>
-                        <tr><td>001-001-000008</td><td>Demo S.A.</td><td>$400.00</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
-                        <tr><td>001-001-000007</td><td>Roberto Gómez</td><td>$25.75</td><td><span class="badge text-bg-success">Pagada</span></td></tr>
-                        <tr><td>001-001-000006</td><td>Factura Prueba</td><td>$3,200.00</td><td><span class="badge text-bg-danger">Vencida</span></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
