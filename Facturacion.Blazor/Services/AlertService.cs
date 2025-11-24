@@ -1,5 +1,6 @@
 ﻿// Services/AlertService.cs
 using CurrieTechnologies.Razor.SweetAlert2;
+using Microsoft.AspNetCore.Components;
 
 namespace Facturacion.Blazor.Services;
 
@@ -31,4 +32,27 @@ public class AlertService
 
     public async Task Info(string text, string title = "Información")
         => await _swal.FireAsync(title, text, SweetAlertIcon.Info);
+
+    public enum AlertType
+    {
+        Success,
+        Error,
+        Warning,
+        Info
+    }
+        public string Mensaje { get; private set; } = string.Empty;
+        public AlertType Tipo { get; private set; } = AlertType.Info;
+        public bool HasAlert => !string.IsNullOrEmpty(Mensaje);
+
+        public void Mostrar(string mensaje, AlertType tipo = AlertType.Info)
+        {
+            Mensaje = mensaje;
+            Tipo = tipo;
+        }
+
+        public void Limpiar()
+        {
+            Mensaje = string.Empty;
+            Tipo = AlertType.Info;
+        }
 }

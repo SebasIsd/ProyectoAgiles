@@ -107,4 +107,45 @@ public class ClienteService : IClienteService
                 throw new ArgumentException($"Longitud inválida para {tipo}");
         }
     }
+
+    public async Task<List<ClienteDto>> GetClientesNuevosMesAsync()
+    {
+        var primerDiaMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+        var todosLosClientes = await _repo.GetAllActivosAsync();
+
+        return todosLosClientes
+            .Where(c => c.CreatedAt >= primerDiaMes)
+            .Select(c => new ClienteDto(
+                c.Id,
+                c.Nombre,
+                c.TipoIdentificacion.ToString(),
+                c.Identificacion,
+                c.Email,
+                c.Telefono,
+                c.Direccion,
+                c.Activo
+            ))
+            .ToList();
+    }
+    public async Task<List<ClienteDto>> GetClientesRecientesAsync(int top)
+    {
+        var clientes = await _repo.GetAllActivosAsync();
+        return clientes
+            .OrderByDescending(c => c.CreatedAt) // Asegúrate de que esta propiedad exista en Cliente
+            .Take(top)
+            .Select(c => new ClienteDto(
+                c.Id,
+                c.Nombre,
+                c.TipoIdentificacion.ToString(),
+                c.Identificacion,
+                c.Email,
+                c.Telefono,
+                c.Direccion,
+                c.Activo
+            ))
+            .ToList();
+    }
+
+
 }

@@ -188,7 +188,7 @@ public class FacturaService : IFacturaService
         // Por ahora solo permitimos editar si está en Borrador
         var factura = await _facturaRepo.GetByIdAsync(id);
         if (factura == null) throw new Exception("Factura no encontrada");
-        if (factura.Estado != "Borrador") throw new Exception("Solo se pueden editar facturas en estado Borrador");
+        if (factura.Estado != "Emitida") throw new Exception("Solo se pueden editar facturas en estado Borrador");
 
         // Aquí iría lógica similar a crear, pero con actualización
         // Por ahora lo dejamos simple
@@ -199,9 +199,70 @@ public class FacturaService : IFacturaService
     {
         var factura = await _facturaRepo.GetByIdAsync(id);
         if (factura == null) throw new Exception("Factura no encontrada");
-        if (factura.Estado != "Borrador") throw new Exception("Solo se pueden eliminar facturas en Borrador");
+        if (factura.Estado != "Emitida") throw new Exception("Solo se pueden eliminar facturas en Borrador");
 
         await _facturaRepo.DeleteAsync(factura);
         await _facturaRepo.SaveChangesAsync();
+    }
+    public async Task<List<FacturaDto>> GetFacturasMesActualAsync()
+    {
+        var primerDiaMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        var ultimoDiaMes = primerDiaMes.AddMonths(1).AddDays(-1);
+
+        return await _facturaRepo.GetAll()
+            .Include(f => f.Cliente)
+            .Where(f => f.FechaEmision >= primerDiaMes && f.FechaEmision <= ultimoDiaMes)
+            .Select(f => new FacturaDto
+            {
+                Id = f.Id,
+                Numero = f.Numero,
+                FechaEmision = f.FechaEmision,
+                ClienteNombre = f.Cliente.Nombre,
+                Total = f.Total,
+                Estado = f.Estado
+            }).ToListAsync();
+    }
+
+    public async Task<int> GetFacturasPendientesAsync()
+    {
+        return await _facturaRepo.GetAll()
+            .CountAsync(f => f.Estado == "Emitida");
+    }
+
+    public async Task<List<decimal>> GetVentasUltimosMesesAsync(int meses)
+    {
+        var fechaInicio = DateTime.Now.AddMonths(-meses);
+        var ventasPorMes = await _facturaRepo.GetAll()
+            .Where(f => f.FechaEmision >= fechaInicio)
+            .GroupBy(f => new { f.FechaEmision.Year, f.FechaEmision.Month })
+            .Select(g => new
+            {
+                Mes = g.Key,
+                Total = g.Sum(f => f.Total)
+            })
+            .OrderBy(g => g.Mes.Year)
+            .ThenBy(g => g.Mes.Month)
+            .Select(g => g.Total)
+            .ToListAsync();
+
+        return ventasPorMes;
+    }
+
+    public async Task<List<FacturaDto>> GetUltimasFacturasAsync(int top)
+    {
+        return await _facturaRepo.GetAll()
+            .AsNoTracking()
+            .Include(f => f.Cliente)
+            .OrderByDescending(f => f.FechaEmision)
+            .Take(top)
+            .Select(f => new FacturaDto
+            {
+                Id = f.Id,
+                Numero = f.Numero,
+                FechaEmision = f.FechaEmision,
+                ClienteNombre = f.Cliente.Nombre ?? "Desconocido",
+                Total = f.Total,
+                Estado = f.Estado
+            }).ToListAsync();
     }
 }
