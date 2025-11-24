@@ -2,96 +2,127 @@
 @using Facturacion.Blazor.Services
 @using System.Linq
 @inject FacturaState FacturaState
+@inject FacturaApiService FacturaApiService
 
 <PageTitle>Reporte de Cobros | Facturación Electrónica</PageTitle>
 
-<h3 class="mb-2">Reporte de Cobros</h3>
-<p class="text-muted mb-3">
-    Clientes con facturas pendientes de pago (deudores). Solo se consideran facturas cuyo estado es distinto de <strong>Pagada</strong>.
-</p>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white fw-bold d-flex align-items-center">
-        <i class="bi bi-people-fill me-2"></i> Clientes deudores
-        <span class="ms-auto text-muted small">
-            Total adeudado: <strong>$ @TotalGeneralAdeudado.ToString("N2")</strong>
-        </span>
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-3">Cargando reporte de cobros...</p>
     </div>
-    <div class="card-body p-0">
-        <table class="table table-hover table-striped mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Cliente</th>
-                    <th class="text-center"># Facturas pendientes</th>
-                    <th class="text-end">Total adeudado</th>
-                    <th class="text-center">Última factura</th>
-                    <th class="text-center">Fecha última factura</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!clientesDeudores.Any())
-                {
+}
+else
+{
+    <h3 class="mb-2">Reporte de Cobros</h3>
+    <p class="text-muted mb-3">
+        Clientes con facturas pendientes de pago (deudores). Solo se consideran facturas cuyo estado es <strong>Emitida</strong>.
+    </p>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white fw-bold d-flex align-items-center">
+            <i class="bi bi-people-fill me-2"></i> Clientes con facturas pendientes
+            <span class="ms-auto text-muted small">
+                Total adeudado: <strong>$ @TotalGeneralAdeudado.ToString("N2")</strong>
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-light">
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-3">
-                            No existen facturas pendientes de cobro. Todos los clientes están al día. 🎉
-                        </td>
+                        <th>Cliente</th>
+                        <th class="text-center"># Facturas pendientes</th>
+                        <th class="text-end">Total adeudado</th>
+                        <th class="text-center">Última factura</th>
+                        <th class="text-center">Fecha última factura</th>
                     </tr>
-                }
-                else
-                {
-                    @foreach (var c in clientesDeudores)
+                </thead>
+                <tbody>
+                    @if (!clientesDeudores.Any())
                     {
                         <tr>
-                            <td>@c.Cliente</td>
-                            <td class="text-center">@c.NumeroFacturasPendientes</td>
-                            <td class="text-end">$ @c.TotalAdeudado.ToString("N2")</td>
-                            <td class="text-center">@c.UltimaFacturaNumero</td>
-                            <td class="text-center">@c.FechaUltimaFactura.ToString("dd/MM/yyyy")</td>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                No existen facturas con estado "Emitida". Todos los clientes están al día o han pagado. 🎉
+                            </td>
                         </tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var c in clientesDeudores)
+                        {
+                            <tr>
+                                <td>@c.Cliente</td>
+                                <td class="text-center">@c.NumeroFacturasPendientes</td>
+                                <td class="text-end">$ @c.TotalAdeudado.ToString("N2")</td>
+                                <td class="text-center">@c.UltimaFacturaNumero</td>
+                                <td class="text-center">@c.FechaUltimaFactura.ToString("dd/MM/yyyy")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
 
-<div class="small text-muted">
-    <i class="bi bi-info-circle me-1"></i>
-    Este reporte se genera agrupando todas las facturas cuyo estado es diferente de <strong>Pagada</strong>.
-</div>
+    <div class="small text-muted">
+        <i class="bi bi-info-circle me-1"></i>
+        Este reporte se genera agrupando todas las facturas cuyo estado es <strong>Emitida</strong>.
+    </div>
+}
 
 @code {
+    private bool isLoading = true;
     private List<ClienteDeudorViewModel> clientesDeudores = new();
     private decimal TotalGeneralAdeudado;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        var facturas = FacturaState.GetAll();
+        try
+        {
+            // ✅ Inyectar el servicio en el estado
+            FacturaState.SetApiService(FacturaApiService);
 
-        // Solo facturas NO pagadas (Pendiente, Vencida, etc.)
-        var pendientes = facturas
-            .Where(f => !string.Equals(f.Estado, "Pagada", StringComparison.OrdinalIgnoreCase));
+            // ✅ Cargar las facturas desde la API
+            await FacturaState.LoadFacturasAsync();
 
-        clientesDeudores = pendientes
-            .GroupBy(f => f.Cliente) // asumo que la propiedad se llama Cliente
-            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
-            .Select(g =>
-            {
-                var ultima = g.OrderByDescending(f => f.Fecha).First();
+            var facturas = FacturaState.GetAll();
 
-                return new ClienteDeudorViewModel
+            // Filtrar solo facturas con estado "Emitida"
+            var facturasEmitidas = facturas
+                .Where(f => string.Equals(f.Estado, "Emitida", StringComparison.OrdinalIgnoreCase));
+
+            clientesDeudores = facturasEmitidas
+                .GroupBy(f => f.ClienteNombre) // ✅ Usar ClienteNombre en lugar de Cliente
+                .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+                .Select(g =>
                 {
-                    Cliente = g.Key,
-                    NumeroFacturasPendientes = g.Count(),
-                    TotalAdeudado = g.Sum(f => f.Total),
-                    UltimaFacturaNumero = ultima.Numero,
-                    FechaUltimaFactura = ultima.Fecha
-                };
-            })
-            .OrderByDescending(c => c.TotalAdeudado)
-            .ToList();
+                    var ultima = g.OrderByDescending(f => f.FechaEmision).First(); // ✅ Usar FechaEmision
 
-        TotalGeneralAdeudado = clientesDeudores.Sum(c => c.TotalAdeudado);
+                    return new ClienteDeudorViewModel
+                    {
+                        Cliente = g.Key,
+                        NumeroFacturasPendientes = g.Count(),
+                        TotalAdeudado = g.Sum(f => f.Total),
+                        UltimaFacturaNumero = ultima.Numero,
+                        FechaUltimaFactura = ultima.FechaEmision
+                    };
+                })
+                .OrderByDescending(c => c.TotalAdeudado)
+                .ToList();
+
+            TotalGeneralAdeudado = clientesDeudores.Sum(c => c.TotalAdeudado);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar el reporte: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private class ClienteDeudorViewModel

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Facturacion.Application.DTOs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -19,6 +20,24 @@ namespace Facturacion.Blazor.Services
     public class FacturaState
     {
         private readonly List<FacturaItem> _facturas = new();
+        private List<FacturaDto> _facturasDto = new();
+        private FacturaApiService? _facturaApiService;
+
+        public void SetApiService(FacturaApiService facturaApiService)
+        {
+            _facturaApiService = facturaApiService;
+        }
+        public IReadOnlyList<FacturaDto> GetAll() => _facturasDto.AsReadOnly();
+        public async Task LoadFacturasAsync()
+        {
+            if (_facturaApiService == null)
+                throw new InvalidOperationException("FacturaApiService no ha sido inyectado en FacturaState.");
+
+            var facturas = await _facturaApiService.GetAllAsync();
+            _facturasDto = facturas ?? new List<FacturaDto>();
+        }
+
+
 
         public FacturaState()
         {
@@ -36,7 +55,7 @@ namespace Facturacion.Blazor.Services
             });
         }
 
-        public IReadOnlyList<FacturaItem> GetAll() => _facturas;
+        //public IReadOnlyList<FacturaItem> GetAll() => _facturas;
 
         public FacturaItem? GetById(int id) =>
             _facturas.FirstOrDefault(f => f.Id == id);
