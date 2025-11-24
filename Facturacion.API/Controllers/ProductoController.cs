@@ -50,10 +50,24 @@ public class ProductosController : ControllerBase
         await _service.CrearLoteAsync(dto, UserId);
         return Ok(new { mensaje = "Lote creado correctamente" });
     }
-    private readonly AppDbContext _context;
+
     // GET: api/productos/categorias
     [HttpGet("categorias")]
     public async Task<ActionResult<List<CategoriaDto>>> GetCategorias()
         => Ok(await _service.GetCategoriasAsync());
 
+    // NUEVO MÉTODO PARA COMBO - CORREGIDO
+    [HttpGet("combo")]
+    public async Task<ActionResult<List<ProductoComboDto>>> GetComboProductos()
+    {
+        try
+        {
+            var productos = await _service.GetComboProductosAsync(); // ← CAMBIÉ _productoService por _service
+            return Ok(productos);
+        }
+        catch (System.Exception ex)
+        {
+            return StatusCode(500, $"Error interno: {ex.Message}");
+        }
+    }
 }

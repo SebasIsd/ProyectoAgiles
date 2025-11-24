@@ -1,34 +1,48 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// Facturacion.Domain/Entities/ProductoLote.cs
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Facturacion.Domain.Entities;
-
-public class ProductoLote : BaseEntity
+namespace Facturacion.Domain.Entities
 {
-    public int ProductoId { get; set; }
-    public virtual Producto Producto { get; set; } = null!;
+    public class ProductoLote
+    {
+        [Key]
+        public int Id { get; set; }
 
-    [Required, StringLength(50)]
-    public string Lote { get; set; } = string.Empty;
+        [Required]
+        public int ProductoId { get; set; }
 
-    [Range(0.01, 999999.99)]
-    public decimal PrecioCompra { get; set; }
-    
+        [Required]
+        [StringLength(50)]
+        public string Lote { get; set; } = string.Empty;
 
-    [Range(0.01, 999999.99)]
-    public decimal PrecioVenta { get; set; }
+        [Required]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal PrecioCompra { get; set; }
 
-    public int Stock { get; set; } = 0;
+        [Required]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal PrecioVenta { get; set; }
 
-    public DateTime FechaIngreso { get; set; } = DateTime.UtcNow.Date;
+        [Required]
+        public int Stock { get; set; } = 0;
 
-    public DateTime? FechaVencimiento { get; set; }
+        [Required]
+        public DateTime FechaIngreso { get; set; } = DateTime.Now.Date;
 
-    public bool Activo { get; set; } = true;
+        public DateTime? FechaVencimiento { get; set; }
 
-    public int CreatedBy { get; set; }
+        [Required]
+        public bool Activo { get; set; } = true;
+
+        [Required]
+        public int CreatedBy { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        // Navegación - CORREGIDO para que coincida con tu Producto
+        public virtual Producto Producto { get; set; } = null!;
+    }
 }
