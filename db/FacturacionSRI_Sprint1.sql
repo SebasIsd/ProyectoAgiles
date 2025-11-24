@@ -24,18 +24,17 @@ GO
 -- TABLA: Usuarios
 -- =============================================
 CREATE TABLE [dbo].[Usuarios] (
-    [Id] INT IDENTITY(1,1) NOT NULL,
+    [Id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     [Username] NVARCHAR(50) NOT NULL,
-    [PasswordHash] NVARCHAR(MAX) NOT NULL,
+    -- Asumimos bcrypt/argon2/etc. VARCHAR(255 es suficiente)
+    [PasswordHash] VARCHAR(255) NOT NULL,
     [Role] NVARCHAR(20) NOT NULL DEFAULT 'User',
     [Nombre] NVARCHAR(100) NULL,
     [Email] NVARCHAR(100) NULL,
     [CreatedAt] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [UpdatedAt] DATETIME2(7) NULL,
-    CONSTRAINT PK_Usuarios PRIMARY KEY (Id),
     CONSTRAINT CK_Usuarios_Role CHECK (Role IN ('Admin', 'User'))
 );
-
 CREATE UNIQUE INDEX IX_Usuarios_Username ON Usuarios(Username);
 CREATE UNIQUE INDEX IX_Usuarios_Email ON Usuarios(Email) WHERE Email IS NOT NULL;
 GO
@@ -77,8 +76,8 @@ CREATE TABLE [dbo].[Clientes] (
     CreatedBy INT NOT NULL,
     CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2(7) NULL,
-    CONSTRAINT FK_Clientes_TipoIdentificacion FOREIGN KEY (TipoIdentificacionId) REFERENCES TipoIdentificacion(Id),
-    CONSTRAINT FK_Clientes_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+    CONSTRAINT FK_Clientes_TipoIdentificacion FOREIGN KEY (TipoIdentificacionId) REFERENCES TipoIdentificacion(Id)
+    -- FK to Usuarios.CreatedBy se agrega más abajo con nombre controlado
 );
 
 -- Único por tipo + número (solo entre activos)
@@ -87,7 +86,7 @@ ON Clientes(TipoIdentificacionId, Identificacion) WHERE Activo = 1;
 GO
 
 -- =============================================
--- TABLA: Productos (solo catálogo principal)
+-- TABLA: Productos (catálogo principal)
 -- =============================================
 CREATE TABLE [dbo].[Productos] (
     Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -102,13 +101,13 @@ CREATE TABLE [dbo].[Productos] (
     CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2(7) NULL,
     CONSTRAINT FK_Productos_Marca FOREIGN KEY (MarcaId) REFERENCES Marca(Id),
-    CONSTRAINT FK_Productos_Categoria FOREIGN KEY (CategoriaId) REFERENCES CategoriaProducto(Id),
-    CONSTRAINT FK_Productos_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+    CONSTRAINT FK_Productos_Categoria FOREIGN KEY (CategoriaId) REFERENCES CategoriaProducto(Id)
+    -- FK to Usuarios.CreatedBy se agrega más abajo
 );
 GO
 
 -- =============================================
--- TABLA: Lotes de producto (aquí va el precio y el stock real)
+-- TABLA: Lotes de producto (precio y stock)
 -- =============================================
 CREATE TABLE [dbo].[ProductoLotes] (
     Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -123,32 +122,232 @@ CREATE TABLE [dbo].[ProductoLotes] (
     CreatedBy INT NOT NULL,
     CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT FK_ProductoLotes_Producto FOREIGN KEY (ProductoId) REFERENCES Productos(Id),
-    CONSTRAINT FK_ProductoLotes_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id),
     CONSTRAINT UQ_ProductoLotes_Lote UNIQUE (ProductoId, Lote)
+    -- FK to Usuarios.CreatedBy se agrega más abajo
 );
 GO
 
 -- =============================================
--- TRIGGERS UpdatedAt
+-- Empresa, Secuenciales, FormasPago
 -- =============================================
-CREATE TRIGGER trg_Clientes_Update ON Clientes AFTER UPDATE AS
+CREATE TABLE Empresa (
+    Id INT PRIMARY KEY IDENTITY,
+    Ruc NVARCHAR(13) NOT NULL,
+    RazonSocial NVARCHAR(300) NOT NULL,
+    NombreComercial NVARCHAR(300),
+    DireccionMatriz NVARCHAR(300),
+    ContribuyenteEspecial NVARCHAR(10),
+    ObligadoContabilidad BIT NOT NULL DEFAULT 1,
+    LogoPath NVARCHAR(500),
+    Activo BIT DEFAULT 1
+);
+
+CREATE TABLE Secuenciales (
+    Id INT PRIMARY KEY IDENTITY,
+    Establecimiento CHAR(3) NOT NULL,      -- 001
+    PuntoEmision CHAR(3) NOT NULL,         -- 001
+    TipoComprobante CHAR(2) NOT NULL,      -- 01 = Factura
+    SecuencialActual INT NOT NULL DEFAULT 0,
+    Activo BIT DEFAULT 1,
+    UNIQUE(Establecimiento, PuntoEmision, TipoComprobante)
+);
+
+CREATE TABLE FormasPago (
+    Id INT PRIMARY KEY IDENTITY,
+    CodigoSRI NVARCHAR(2) NOT NULL,  -- 01, 15, 16, 17...20
+    Descripcion NVARCHAR(100) NOT NULL,
+    Activo BIT DEFAULT 1
+);
+GO
+
+-- =============================================
+-- Facturas (cabecera)
+-- =============================================
+CREATE TABLE Facturas (
+    Id INT PRIMARY KEY IDENTITY,
+    Numero NVARCHAR(20) NOT NULL,                    -- 001-001-000000001
+    ClaveAcceso NVARCHAR(49) NULL,
+    FechaEmision DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    ClienteId INT NOT NULL,
+    Subtotal DECIMAL(18,4) NOT NULL,
+    TotalDescuento DECIMAL(18,4) NOT NULL DEFAULT 0,
+    Iva DECIMAL(18,4) NOT NULL,
+    Total DECIMAL(18,4) NOT NULL,
+    Estado NVARCHAR(20) NOT NULL DEFAULT 'Borrador', -- Borrador, Pendiente, Autorizada, Rechazada, Anulada
+    Ambiente TINYINT NOT NULL DEFAULT 1,             -- 1=Pruebas, 2=Producción
+    XmlFirmado XML NULL,
+    NumeroAutorizacion NVARCHAR(49) NULL,
+    FechaAutorizacion DATETIME2 NULL,
+    CreatedBy INT NOT NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2 NULL,
+    Activo BIT NOT NULL DEFAULT 1,
+    CONSTRAINT FK_Facturas_Cliente FOREIGN KEY (ClienteId) REFERENCES Clientes(Id)
+    -- FK to Usuarios.CreatedBy se agrega más abajo
+);
+GO
+
+-- =============================================
+-- Detalle de factura
+-- =============================================
+CREATE TABLE FacturaDetalles (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    ProductoId INT NOT NULL,
+    ProductoLoteId INT NULL,           -- opcional, para trazabilidad
+    Cantidad INT NOT NULL,
+    PrecioUnitario DECIMAL(18,4) NOT NULL,
+    SubtotalLinea DECIMAL(18,4) NOT NULL,
+    PorcentajeIva DECIMAL(5,2) NOT NULL DEFAULT 15,
+    ValorIva DECIMAL(18,4) NOT NULL,
+    TotalLinea DECIMAL(18,4) NOT NULL,
+    Activo BIT NOT NULL DEFAULT 1,
+    CreatedBy INT NOT NULL DEFAULT 1,
+    CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2(7) NULL,
+    CONSTRAINT FK_FacturaDetalles_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_FacturaDetalles_Producto FOREIGN KEY (ProductoId) REFERENCES Productos(Id),
+    CONSTRAINT FK_FacturaDetalles_Lote FOREIGN KEY (ProductoLoteId) REFERENCES ProductoLotes(Id)
+);
+GO
+
+-- =============================================
+-- Formas de pago de la factura
+-- =============================================
+CREATE TABLE FacturaFormasPago (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    FormaPagoId INT NOT NULL,
+    Valor DECIMAL(18,4) NOT NULL,
+    Plazo INT NULL,              -- días de crédito
+    UnidadTiempo NVARCHAR(10) NULL, -- dias, meses
+    CONSTRAINT FK_FacturaFormasPago_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_FacturaFormasPago_Forma FOREIGN KEY (FormaPagoId) REFERENCES FormasPago(Id)
+);
+GO
+
+-- =============================================
+-- Comprobantes Electronicos (log)
+-- =============================================
+CREATE TABLE ComprobantesElectronicos (
+    Id INT PRIMARY KEY IDENTITY,
+    FacturaId INT NOT NULL,
+    ClaveAcceso NVARCHAR(49) NOT NULL,
+    EstadoSRI NVARCHAR(50) NULL, -- RECIBIDA, EN_PROCESO, AUTORIZADO, NO_AUTORIZADO
+    XmlEnviado XML NULL,
+    XmlRecibido XML NULL,
+    MensajeError NVARCHAR(MAX) NULL,
+    FechaEnvio DATETIME2 NULL,
+    FechaAutorizacion DATETIME2 NULL,
+    CONSTRAINT FK_Comprobantes_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id)
+);
+GO
+
+-- =============================================
+-- Cobros (moved here AFTER Facturas exists)
+-- =============================================
+CREATE TABLE Cobros (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    FacturaId INT NOT NULL,
+    Monto DECIMAL(18,4) NOT NULL CHECK (Monto > 0),
+    MetodoPago NVARCHAR(50) NOT NULL,
+    Fecha DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CreatedBy INT NOT NULL,
+    CONSTRAINT FK_Cobros_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id),
+    CONSTRAINT FK_Cobros_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
+);
+GO
+
+-- =============================================
+-- FK para CreatedBy en tablas que lo requieren
+-- (creamos FKs con nombres fijos y chequeo existence)
+-- =============================================
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Clientes_CreatedBy_Usuarios_Id')
+BEGIN
+    ALTER TABLE Clientes
+    ADD CONSTRAINT FK_Clientes_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
+    REFERENCES Usuarios (Id)
+    ON DELETE RESTRICT;
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Productos_CreatedBy_Usuarios_Id')
+BEGIN
+    ALTER TABLE Productos
+    ADD CONSTRAINT FK_Productos_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
+    REFERENCES Usuarios (Id)
+    ON DELETE RESTRICT;
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ProductoLotes_CreatedBy_Usuarios_Id')
+BEGIN
+    ALTER TABLE ProductoLotes
+    ADD CONSTRAINT FK_ProductoLotes_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
+    REFERENCES Usuarios (Id)
+    ON DELETE RESTRICT;
+END
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Facturas_CreatedBy_Usuarios_Id')
+BEGIN
+    ALTER TABLE Facturas
+    ADD CONSTRAINT FK_Facturas_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
+    REFERENCES Usuarios (Id)
+    ON DELETE RESTRICT;
+END
+GO
+
+-- =============================================
+-- TRIGGERS UpdatedAt (corregidos)
+-- =============================================
+-- Clientes
+IF OBJECT_ID('trg_Clientes_Update', 'TR') IS NOT NULL
+    DROP TRIGGER trg_Clientes_Update;
+GO
+CREATE TRIGGER trg_Clientes_Update ON Clientes
+AFTER UPDATE
+AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE c SET UpdatedAt = SYSUTCDATETIME()
-    FROM Clientes c INNER JOIN inserted i ON c.Id = i.Id;
+    UPDATE c
+    SET UpdatedAt = SYSUTCDATETIME()
+    FROM Clientes c
+    INNER JOIN inserted i ON c.Id = i.Id;
 END;
 GO
 
-CREATE TRIGGER trg_Productos_Update ON Productos AFTER UPDATE AS
+-- Productos (corregido: ON p.Id = i.Id)
+IF OBJECT_ID('trg_Productos_Update', 'TR') IS NOT NULL
+    DROP TRIGGER trg_Productos_Update;
+GO
+CREATE TRIGGER trg_Productos_Update ON Productos
+AFTER UPDATE
+AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE p SET UpdatedAt = SYSUTCDATETIME()
-    FROM Productos p INNER JOIN inserted i ON p.Id = p.Id;
+    UPDATE p
+    SET UpdatedAt = SYSUTCDATETIME()
+    FROM Productos p
+    INNER JOIN inserted i ON p.Id = i.Id;
+END;
+GO
+
+-- ProductoLotes (opcional: actualizar UpdatedAt si existe)
+IF OBJECT_ID('trg_ProductoLotes_Update', 'TR') IS NOT NULL
+    DROP TRIGGER trg_ProductoLotes_Update;
+GO
+CREATE TRIGGER trg_ProductoLotes_Update ON ProductoLotes
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE pl
+    SET CreatedAt = ISNULL(pl.CreatedAt, SYSUTCDATETIME()) -- no sobrescribimos CreatedAt
+    FROM ProductoLotes pl
+    INNER JOIN inserted i ON pl.Id = i.Id;
 END;
 GO
 
 -- =============================================
--- DATOS DE CATÁLOGOS
+-- DATOS DE CATÁLOGOS (ejemplo)
 -- =============================================
 INSERT INTO TipoIdentificacion (Codigo, Descripcion) VALUES
 ('RUC', 'Registro Único de Contribuyentes'),
@@ -161,11 +360,11 @@ INSERT INTO Marca (Nombre) VALUES ('Samsung'), ('Sony'), ('Apple'), ('Genérico'
 GO
 
 -- =============================================
--- USUARIO ADMIN POR DEFECTO
+-- USUARIO ADMIN POR DEFECTO (hash de ejemplo)
 -- =============================================
 INSERT INTO Usuarios (Username, PasswordHash, Role, Nombre, Email)
 VALUES ('admin', '$2a$11$oieAI24uoMEQpdZZQiRxN.LVgOhPzgyhd85lZKFQP9Imf97b8bUh6', 'Admin', 'Administrador', 'admin@factura.com');
--- Contraseña: Admin123!
+-- Contraseña de ejemplo: Admin123!
 GO
 
 -- =============================================
@@ -188,7 +387,7 @@ VALUES ('Arroz 5kg', 'ARZ001', 4, 2, 1);
 SET @Prod1 = SCOPE_IDENTITY();
 
 INSERT INTO Productos (Nombre, Codigo, CodigoBarra, MarcaId, CategoriaId, CreatedBy)
-VALUES ('Televisor 55" 4K', 'TV001', '1234567890123', 1, 1, 1);
+VALUES ('Televisor 55\" 4K', 'TV001', '1234567890123', 1, 1, 1);
 SET @Prod2 = SCOPE_IDENTITY();
 
 -- Lotes
@@ -198,238 +397,31 @@ VALUES
 (@Prod1, 'L2025-002', 8.70, 12.50, 80,  '2025-03-20', '2026-03-20', 1),
 (@Prod2, 'LTV-2025-A', 450.00, 699.99, 10, '2025-02-10', NULL, 1);
 GO
--- 1. Empresa (tu negocio)
-CREATE TABLE Empresa (
-    Id INT PRIMARY KEY IDENTITY,
-    Ruc NVARCHAR(13) NOT NULL,
-    RazonSocial NVARCHAR(300) NOT NULL,
-    NombreComercial NVARCHAR(300),
-    DireccionMatriz NVARCHAR(300),
-    ContribuyenteEspecial NVARCHAR(10),
-    ObligadoContabilidad BIT NOT NULL DEFAULT 1,
-    LogoPath NVARCHAR(500),
-    Activo BIT DEFAULT 1
-);
-
--- 2. Secuenciales (control de numeración)
-CREATE TABLE Secuenciales (
-    Id INT PRIMARY KEY IDENTITY,
-    Establecimiento CHAR(3) NOT NULL,      -- 001
-    PuntoEmision CHAR(3) NOT NULL,         -- 001
-    TipoComprobante CHAR(2) NOT NULL,      -- 01 = Factura
-    SecuencialActual INT NOT NULL DEFAULT 0,
-    Activo BIT DEFAULT 1,
-    UNIQUE(Establecimiento, PuntoEmision, TipoComprobante)
-);
-
--- 3. Formas de pago SRI
-CREATE TABLE FormasPago (
-    Id INT PRIMARY KEY IDENTITY,
-    CodigoSRI NVARCHAR(2) NOT NULL,  -- 01, 15, 16, 17...20
-    Descripcion NVARCHAR(100) NOT NULL,
-    Activo BIT DEFAULT 1
-);
-
--- 4. Facturas (cabecera)
-CREATE TABLE Facturas (
-    Id INT PRIMARY KEY IDENTITY,
-    Numero NVARCHAR(20) NOT NULL,                    -- 001-001-000000001
-    ClaveAcceso NVARCHAR(49) NULL,
-    FechaEmision DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    ClienteId INT NOT NULL,
-    Subtotal DECIMAL(18,4) NOT NULL,
-    TotalDescuento DECIMAL(18,4) NOT NULL DEFAULT 0,
-    Iva DECIMAL(18,4) NOT NULL,
-    Total DECIMAL(18,4) NOT NULL,
-    Estado NVARCHAR(20) NOT NULL DEFAULT 'Borrador', -- Borrador, Pendiente, Autorizada, Rechazada, Anulada
-    Ambiente TINYINT NOT NULL DEFAULT 1,             -- 1=Pruebas, 2=Producción
-    XmlFirmado XML NULL,
-    NumeroAutorizacion NVARCHAR(49) NULL,
-    FechaAutorizacion DATETIME2 NULL,
-    CreatedBy INT NOT NULL,
-    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    UpdatedAt DATETIME2 NULL,
-    CONSTRAINT FK_Facturas_Cliente FOREIGN KEY (ClienteId) REFERENCES Clientes(Id),
-    CONSTRAINT FK_Facturas_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Usuarios(Id)
-);
-
--- 5. Detalle de factura
-CREATE TABLE FacturaDetalles (
-    Id INT PRIMARY KEY IDENTITY,
-    FacturaId INT NOT NULL,
-    ProductoId INT NOT NULL,
-    ProductoLoteId INT NULL,           -- opcional, para trazabilidad
-    Cantidad INT NOT NULL,
-    PrecioUnitario DECIMAL(18,4) NOT NULL,
-    SubtotalLinea DECIMAL(18,4) NOT NULL,
-    PorcentajeIva DECIMAL(5,2) NOT NULL DEFAULT 15,
-    ValorIva DECIMAL(18,4) NOT NULL,
-    TotalLinea DECIMAL(18,4) NOT NULL,
-    CONSTRAINT FK_FacturaDetalles_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
-    CONSTRAINT FK_FacturaDetalles_Producto FOREIGN KEY (ProductoId) REFERENCES Productos(Id),
-    CONSTRAINT FK_FacturaDetalles_Lote FOREIGN KEY (ProductoLoteId) REFERENCES ProductoLotes(Id)
-);
-
--- 6. Formas de pago de la factura
-CREATE TABLE FacturaFormasPago (
-    Id INT PRIMARY KEY IDENTITY,
-    FacturaId INT NOT NULL,
-    FormaPagoId INT NOT NULL,
-    Valor DECIMAL(18,4) NOT NULL,
-    Plazo INT NULL,              -- días de crédito
-    UnidadTiempo NVARCHAR(10) NULL, -- dias, meses
-    CONSTRAINT FK_FacturaFormasPago_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id) ON DELETE CASCADE,
-    CONSTRAINT FK_FacturaFormasPago_Forma FOREIGN KEY (FormaPagoId) REFERENCES FormasPago(Id)
-);
-
--- 7. Log de comprobantes electrónicos (muy importante para SRI)
-CREATE TABLE ComprobantesElectronicos (
-    Id INT PRIMARY KEY IDENTITY,
-    FacturaId INT NOT NULL,
-    ClaveAcceso NVARCHAR(49) NOT NULL,
-    EstadoSRI NVARCHAR(50) NULL, -- RECIBIDA, EN_PROCESO, AUTORIZADO, NO_AUTORIZADO
-    XmlEnviado XML NULL,
-    XmlRecibido XML NULL,
-    MensajeError NVARCHAR(MAX) NULL,
-    FechaEnvio DATETIME2 NULL,
-    FechaAutorizacion DATETIME2 NULL,
-    CONSTRAINT FK_Comprobantes_Factura FOREIGN KEY (FacturaId) REFERENCES Facturas(Id)
-);
-GO
-
-USE FacturacionSRI;
-GO
 
 -- =============================================
--- 1. Añadir columnas de BaseEntity a las tablas que lo requieren
--- =============================================
-
--- Tabla Clientes (Ya la revisamos y necesita las columnas Activo/CreatedBy)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Clientes'))
-BEGIN
-    ALTER TABLE Clientes ADD Activo BIT NOT NULL DEFAULT 1;
-    PRINT 'Columna Activo agregada a Clientes';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Clientes'))
-BEGIN
-    ALTER TABLE Clientes ADD CreatedBy INT NOT NULL DEFAULT 1;
-    PRINT 'Columna CreatedBy agregada a Clientes';
-END
-
--- La columna CreatedAt ya existe en el script original del Sprint 1, pero la ponemos con el tipo correcto (DATETIME2)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Clientes'))
-BEGIN
-    ALTER TABLE Clientes ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
-    PRINT 'Columna CreatedAt agregada a Clientes';
-END
-
--- Tabla Productos
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Productos'))
-BEGIN
-    ALTER TABLE Productos ADD Activo BIT NOT NULL DEFAULT 1;
-    PRINT 'Columna Activo agregada a Productos';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Productos'))
-BEGIN
-    ALTER TABLE Productos ADD CreatedBy INT NOT NULL DEFAULT 1;
-    PRINT 'Columna CreatedBy agregada a Productos';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Productos'))
-BEGIN
-    ALTER TABLE Productos ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
-    PRINT 'Columna CreatedAt agregada a Productos';
-END
-
--- Tabla Facturas
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'Facturas'))
-BEGIN
-    ALTER TABLE Facturas ADD Activo BIT NOT NULL DEFAULT 1;
-    PRINT 'Columna Activo agregada a Facturas';
-END
-
--- Facturas y Detalles requieren CreatedBy, CreatedAt, UpdatedAt
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'Facturas'))
-BEGIN
-    ALTER TABLE Facturas ADD CreatedBy INT NOT NULL DEFAULT 1;
-    PRINT 'Columna CreatedBy agregada a Facturas';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'Facturas'))
-BEGIN
-    ALTER TABLE Facturas ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
-    PRINT 'Columna CreatedAt agregada a Facturas';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'UpdatedAt' AND Object_ID = Object_ID(N'Facturas'))
-BEGIN
-    ALTER TABLE Facturas ADD UpdatedAt DATETIME2(7) NULL;
-    PRINT 'Columna UpdatedAt agregada a Facturas';
-END
-
--- Tabla FacturaDetalles (Esta tabla hereda de BaseEntity)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'Activo' AND Object_ID = Object_ID(N'FacturaDetalles'))
-BEGIN
-    ALTER TABLE FacturaDetalles ADD Activo BIT NOT NULL DEFAULT 1;
-    PRINT 'Columna Activo agregada a FacturaDetalles';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedBy' AND Object_ID = Object_ID(N'FacturaDetalles'))
-BEGIN
-    ALTER TABLE FacturaDetalles ADD CreatedBy INT NOT NULL DEFAULT 1;
-    PRINT 'Columna CreatedBy agregada a FacturaDetalles';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'CreatedAt' AND Object_ID = Object_ID(N'FacturaDetalles'))
-BEGIN
-    ALTER TABLE FacturaDetalles ADD CreatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME();
-    PRINT 'Columna CreatedAt agregada a FacturaDetalles';
-END
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'UpdatedAt' AND Object_ID = Object_ID(N'FacturaDetalles'))
-BEGIN
-    ALTER TABLE FacturaDetalles ADD UpdatedAt DATETIME2(7) NULL;
-    PRINT 'Columna UpdatedAt agregada a FacturaDetalles';
-END
-
-GO
-
--- =============================================
--- 2. Crear las Foreign Keys (FK) para CreatedBy si no existen
--- =============================================
-
--- Asumiendo que la tabla Usuarios ya existe y tiene la PK: Id
--- Clientes
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Clientes_CreatedBy_Usuarios_Id')
-BEGIN
-    ALTER TABLE Clientes
-    ADD CONSTRAINT FK_Clientes_CreatedBy_Usuarios_Id FOREIGN KEY (CreatedBy)
-    REFERENCES Usuarios (Id)
-    ON DELETE RESTRICT;
-    PRINT 'FK_Clientes_CreatedBy_Usuarios_Id creada';
-END
-GO
-
--- =============================================
--- BACKUP AUTOMÁTICO AL ESCRITORIO
+-- BACKUP AUTOMÁTICO (intento; xp_regread/xp_cmdshell pueden estar DESHABILITADOS)
 -- =============================================
 DECLARE @Path NVARCHAR(500);
-EXEC master.dbo.xp_regread 'HKEY_CURRENT_USER', 'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders', 'Desktop', @Path OUTPUT;
+BEGIN TRY
+    -- intenta leer Desktop
+    EXEC master.dbo.xp_regread 'HKEY_CURRENT_USER', 'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders', 'Desktop', @Path OUTPUT;
+    IF @Path IS NULL OR LEN(@Path) = 0
+        SET @Path = 'C:\Backups';
+    SET @Path = @Path + '\ProyectoAgiles\Backups\';
+    -- crear carpeta (si xp_cmdshell activo)
+    EXEC master.dbo.xp_cmdshell 'mkdir "' + @Path + '"', no_output;
+    SET @Path = @Path + 'FacturacionSRI_Completa_' + FORMAT(GETDATE(), 'yyyyMMdd_HHmm') + '.bak';
+    BACKUP DATABASE FacturacionSRI 
+    TO DISK = @Path
+    WITH INIT, NAME = 'FacturacionSRI-Completa', STATS = 10;
+    PRINT 'Backup guardado en: ' + @Path;
+END TRY
+BEGIN CATCH
+    -- Si falla, escribir mensaje; el backup puede necesitar intervención manual
+    PRINT 'No fue posible realizar backup automático con xp_cmdshell/xp_regread. Ejecutar BACKUP manualmente o habilitar permisos.';
+    PRINT ERROR_MESSAGE();
+END CATCH;
+GO
 
-SET @Path = @Path + '\ProyectoAgiles\Backups\';
-
--- Crear carpeta si no existe
-EXEC master.dbo.xp_cmdshell 'mkdir "' + @Path + '"', no_output;
-
-SET @Path = @Path + 'FacturacionSRI_Completa_' + FORMAT(GETDATE(), 'yyyyMMdd_HHmm') + '.bak';
-
-BACKUP DATABASE FacturacionSRI 
-TO DISK = @Path
-WITH INIT, NAME = 'FacturacionSRI-Completa', STATS = 10;
-
-PRINT 'Base de datos FacturacionSRI creada 100% actualizada!';
-PRINT 'Backup guardado en: ' + @Path;
-PRINT 'Usuario admin → admin / Admin123!';
+PRINT 'Script ejecutado correctamente (con correcciones).';
 GO

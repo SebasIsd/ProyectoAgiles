@@ -54,6 +54,8 @@ builder.Services.AddSingleton<FacturaState>();
 
 builder.Services.AddSweetAlert2();
 builder.Services.AddScoped<AlertService>();
+builder.Services.AddScoped<CobroService>();
+
 
 // 4. Configuración del CLIENTE NOMBRADO "API"
 builder.Services.AddHttpClient("API", client =>

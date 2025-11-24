@@ -32,13 +32,24 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Repositorios y servicios
 builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
 builder.Services.AddScoped<IProductoService, ProductoService>();
+
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<ILoteRepository, LoteRepository>();
 builder.Services.AddScoped<ILoteService, LoteService>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Repositorio genérico
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+// Servicios específicos
 builder.Services.AddScoped<IFacturaService, FacturaService>();
+builder.Services.AddScoped<ICobroService, CobroService>();
+
+// Repositorios específicos
+builder.Services.AddScoped<IRepository<Cobro>, Repository<Cobro>>();
 builder.Services.AddScoped<IRepository<FacturaDetalle>, Repository<FacturaDetalle>>();
 
 // JWT (no toco tu configuración, solo la dejo igual)
